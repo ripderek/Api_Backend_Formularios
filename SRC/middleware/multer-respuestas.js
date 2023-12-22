@@ -4,11 +4,11 @@ const { dirname, extname, join } = require('path');
 const path = require('path');
 
 
-const urlArchivos = path.join(__dirname, "../../uploads/preguntas")
+const urlArchivos = path.join(__dirname, "../../uploads/respuestas")
 
 const MIMETYPES = ['image/jpeg', 'image/png'];
 
-const upload = multer({
+const uploadRes = multer({
     storage: multer.diskStorage({
         destination: urlArchivos,
         filename: (req, file, cb) => {
@@ -27,5 +27,5 @@ const upload = multer({
     }
 });
 module.exports = {
-    upload
+    uploadRes
 };

@@ -394,12 +394,15 @@ call sp_insertar_niveles()
 --funcion para listar las pregunta de un nivel 
 select * from preguntas p ;
 
+select * from tipos_preguntas tp ;
+select * from preguntas;
 
-select * from FU_preguntas_nivel('4');
-create or replace function FU_preguntas_nivel(p_id_nivel varchar(50))
+select * from FU_preguntas_nivel1('7');
+drop function FU_preguntas_nivel;
+create or replace function FU_preguntas_nivel1(p_id_nivel varchar(50))
 returns table
 (
-	r_enunciado varchar(900), r_fecha varchar(900), r_tiempo_segundos int, r_estado bool, r_id_pregunta int
+	r_enunciado varchar(900), r_fecha varchar(900), r_tiempo_segundos int, r_estado bool, r_id_pregunta varchar(10), r_ID_p int
 )
 language 'plpgsql'
 as
@@ -407,8 +410,10 @@ $BODY$
 begin
 	return query
 	select cast(LEFT(p.enunciado, 80) || '...' as varchar(900) ) as enunciad, cast(to_char(p.fecha_creacion,'DD-MON-YYYY')as varchar(500)) as fecha_crea,
-	p.tiempos_segundos, p.estado, p.id_pregunta
-	from preguntas p where p.id_nivel = cast(p_id_nivel as int) order by p.fecha_creacion asc;
+	p.tiempos_segundos, p.estado, tp.codigo, p.id_pregunta
+	from preguntas p 
+	inner join  tipos_preguntas tp on p.tipo_pregunta= tp.id_tipo_pregunta
+	where p.id_nivel = cast(p_id_nivel as int) order by p.fecha_creacion asc;
 end;
 $BODY$
 
@@ -450,9 +455,10 @@ alter table tipos_preguntas_maestra
  
 
 
-
+select * from extra_pregunta ep ;
 
 select * from tipos_preguntas;
+select * from preguntas p ;
 
 
 --crear la tabla de respuestas para las preguntas 
@@ -656,6 +662,9 @@ select * from tipos_preguntas tp ;
 --esta recibe el enunciado, tiempo para resolver , id tipo de pregunta, y el nivel 
 --en la tabla extra tambien va un registro el cual es la url de la imagen del enunciado en extra y el tiempo del enunciado mas el id de la pregunta
 
+
+
+
 select * from preguntas p ;
 select * from extra_pregunta ep ;
 Create or Replace Procedure SP_Crear_Pregunta_MEMRZAR(
@@ -693,3 +702,158 @@ END;
 $$;
 
 
+--funcion que devuelve los datos de la ultima pregunta creada segun el id de un nivel 
+--esto servira para anadir las opciones de respuestas
+-- para el tipo MEMRZAR
+--se necesita: ID_Pregunta,Enunciado, Imagen_EXTRA
+
+select p.id_pregunta, p.enunciado, ep.extra  from preguntas p 
+		inner join extra_pregunta ep on p.id_pregunta  =ep.id_pregunta  
+		where p.id_nivel =7 order by p.fecha_creacion desc limit 1;
+
+	
+--funcion que devuelve la funcion 
+	select * from FU_datos_pregunta_MEMRZAR(7);
+create or replace function FU_datos_pregunta_MEMRZAR(p_id_nivel int)
+returns table
+(
+	r_id_pregunta int, r_enunciado varchar(900), r_extra varchar(900)
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select p.id_pregunta, p.enunciado, ep.extra  from preguntas p 
+		inner join extra_pregunta ep on p.id_pregunta  =ep.id_pregunta  
+		where p.id_nivel =p_id_nivel order by p.fecha_creacion desc limit 1;
+	end;
+$BODY$
+
+
+delete from extra_pregunta ;
+delete from preguntas ;
+
+
+select * from FU_datos_pregunta_MEMRZAR(7);
+--15
+select * from FU_datos_pregunta_MEMRZAR_id_pregunta(15);
+create or replace function FU_datos_pregunta_MEMRZAR_id_pregunta(p_id_pregunta int)
+returns table
+(
+	r_id_pregunta int, r_enunciado varchar(900), r_extra varchar(900)
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select p.id_pregunta, p.enunciado, ep.extra  from preguntas p 
+		inner join extra_pregunta ep on p.id_pregunta  =ep.id_pregunta  
+		where p.id_pregunta =p_id_pregunta order by p.fecha_creacion desc limit 1;
+	end;
+$BODY$
+
+select * from FU_imagen_pregunta(15)
+create or replace function FU_imagen_pregunta(p_id_pregunta int)
+returns table
+(
+	 r_url_img varchar(900)
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select ep.extra  from preguntas p inner join extra_pregunta ep on p.id_pregunta = ep.id_pregunta where p.id_pregunta=p_id_pregunta;
+	end;
+$BODY$
+
+select ep.extra  from preguntas p inner join extra_pregunta ep on p.id_pregunta = ep.id_pregunta ;
+
+
+--funcion para ver las respuestas que tiene una pregunta 
+select * from preguntas p;
+select * from extra_pregunta ep ;
+select * from respuestas r where id_pregunta = 25;
+
+select * from tipos_preguntas tp ;
+
+
+select * from FU_repuestas_MEMRZAR(25);
+create or replace function FU_repuestas_MEMRZAR(p_id_pregunta int)
+returns table
+(
+	r_id_repuesta int, r_opcion varchar(900), r_correcta bool, r_estado bool, r_eliminado bool 
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select r.id_respuesta, r.opcion, r.correcta, r.estado, r.eliminado from respuestas r where id_pregunta = p_id_pregunta;
+	end;
+$BODY$
+
+select * from preguntas p where p.id_pregunta =25;
+select opcion from respuestas r where r.id_pregunta =25;
+
+insert into respuestas(id_pregunta, opcion, correcta, estado, eliminado)
+			values(25,'Si',false,true,false)
+
+select * from extra_pregunta ep ;
+
+--../../uploads/respuestas/Walter_White_S5B-1703223678916.png
+
+--hacer update para visualizar una imagen en una respuesta no ingresada por el frontend de momento 
+update respuestas set opcion='../../uploads/respuestas/Walter_White_S5B-1703223678916.png'
+
+select * from FU_ver_img_respuesta_MEMRZAR(1);
+create or replace function FU_ver_img_respuesta_MEMRZAR(p_id_respuesta int)
+returns table
+(
+	 r_url_img varchar(900)
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select opcion from respuestas r where r.id_respuesta =p_id_respuesta;
+	end;
+$BODY$
+
+select * from respuestas r 
+
+
+select * from respuestas r ;
+
+--procedimiento almacenado para anadir una respuesta
+CREATE OR REPLACE PROCEDURE SP_anadir_respuesta_MEMRZAR(
+		p_id_pregunta int,
+		p_url_img varchar(500),
+		p_correcta bool
+		)
+LANGUAGE plpgsql
+AS $procedure$
+Begin
+	insert into respuestas(
+						id_pregunta,
+						opcion,
+						correcta
+						)values
+						(
+						 p_id_pregunta,
+						 p_url_img,
+						 p_correcta
+						);
+
+--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
