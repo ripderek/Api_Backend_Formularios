@@ -20,7 +20,6 @@ const crear_seccion_usuario = async (req, res, next) => {
     try {
         //const { id } = req.params;
         const { p_titulo, p_descripcion, p_id_usuario_crea } = req.body;
-        console.log("AQUIE");
         const result = await pool.query('call SP_Crear_Seccion($1,$2,$3)', [p_titulo, p_descripcion, p_id_usuario_crea]);
         return res.status(200).json({ message: "Se creó la sección" });
         //return res.status(200).json(result.rows);
