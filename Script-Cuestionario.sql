@@ -138,11 +138,11 @@ end;
 $function$
 ;
 
-select * from verification_auth('rcoelloc2@uteq.edu.ec','123456')
+select * from verification_auth('rcoelloc2@uteq.edu.ec','')
 
 --Funcion para retornar los datos del inicio de sesion como los nombres, etc 
-CREATE OR REPLACE FUNCTION public.auth_data(email character varying, contra1 character varying)
- RETURNS TABLE(userd character varying, verification boolean)
+CREATE OR REPLACE FUNCTION public.auth_data(email character varying)
+ RETURNS TABLE(userd character varying)
  LANGUAGE plpgsql
 AS $function$
 begin
@@ -150,4 +150,710 @@ begin
 	select cast(ID_User as varchar(500)) as UserT  from usuario where correo_institucional  = email;
 end;
 $function$
+;
+
+select * from auth_data('','')
+
+
+create table prueba2(Nombres_apellidos varchar(300) not null );
+
+
+select * from Auth_Data('rcoelloc2@uteq.edu.ec');
+
+
+select * from Test;
+
+
+select PGP_SYM_DECRYPT(contra ::bytea, 'SGDV_KEY') from usuario u;
+call editar_usuario_not_admin
+
+
+
+
+--funcion para ver los datos de un usuario segun el id 
+--y el nombre con un subtring 
+select 
+		LEFT(nombres_apellidos, 3) || '...' AS user_name_ab,
+		nombres_apellidos , tipo_identificacion , identificacion , 
+		correo_institucional ,numero_celular, isadmin  
+from usuario u 
+	where cast(u.id_user as varchar(800)) = '3b43792d-ec18-49a5-b8af-753c65cb9b21' 
+
+--select * from usuario u 
+	
+select * from FU_usuario_data('3b43792d-ec18-49a5-b8af-753c65cb9b21' )
+--crear la funcion que retorne la info de un usuario xd 
+create or replace function FU_usuario_data(p_idu varchar(500))
+returns table
+(
+	r_user_name_ab varchar(500), r_nombres_apellidos varchar(500), r_tipo_identificacion varchar(500), 
+	r_identificacion varchar(500), r_correo_institucional varchar(500), r_numero_celular varchar(500),
+	r_isadmin bool
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select 
+		cast(LEFT(nombres_apellidos, 10) || '...' as varchar(500) )AS user_name_ab,
+		nombres_apellidos , tipo_identificacion , identificacion , 
+		correo_institucional ,numero_celular, isadmin  
+	from usuario u 
+	where cast(u.id_user as varchar(800)) = p_idu;
+end;
+$BODY$	
+
+	
+	
+	
+alter table secciones
+  add constraint UQ_Titulo
+  unique (titulo);
+ 
+ 
+select * from secciones s ;
+select * from secciones_usuario;
+--Crear un procedimiento para crear seccion segun el usuaio
+--SP_Crear_Seccion
+
+select * from usuario u ;
+--3b43792d-ec18-49a5-b8af-753c65cb9b21
+call SP_Crear_Seccion('Matematicas','Seccion de matematicas','3b43792d-ec18-49a5-b8af-753c65cb9b21');
+Create or Replace Procedure SP_Crear_Seccion(
+										p_titulo varchar(500),
+										p_descripcion varchar(500),
+										p_id_usuario_crea varchar(800)
+										  )
+Language 'plpgsql'
+AS $$
+declare
+	p_id_seccion_creada int;
+begin
+	--crear la seccion
+	insert into secciones(titulo,descripcion) values (p_titulo,p_descripcion);
+	--bucar el id de la seccion creada para insertarla en la tabla transaccional
+	select into p_id_seccion_creada id_seccion from secciones order by id_seccion desc limit 1;
+	--insertar en la transaccional 
+	insert into secciones_usuario(id_seccion, id_usuario, Admin_Seccion) values (p_id_seccion_creada,cast(p_id_usuario_crea as UUID),true);
+	--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+--crear la tabla transaccional 
+CREATE TABLE secciones_usuario (
+    ID_Seccion INT,
+    ID_Usuario UUID,
+    Fecha_Creacion TIMESTAMPTZ DEFAULT Now(),
+    Admin_Seccion BOOLEAN DEFAULT false not null,
+    PRIMARY KEY (ID_Seccion, ID_Usuario)
+);
+
+alter table secciones_usuario 
+add constraint FK_ID_Seccion 
+FOREIGN KEY (ID_Seccion) 
+references secciones(id_seccion);
+
+
+alter table secciones_usuario 
+add constraint FK_ID_Usuario 
+FOREIGN KEY (ID_Usuario) 
+references usuario(ID_User);
+
+
+
+--crear funcion que retorne todas las secciones en las que participe un usuario 
+select s.id_seccion ,s.titulo ,s.descripcion, su.admin_seccion  from secciones s  
+inner join secciones_usuario su on s.id_seccion = su.id_seccion  where cast(su.id_usuario as varchar(800)) = '3b43792d-ec18-49a5-b8af-753c65cb9b21' 
+--3b43792d-ec18-49a5-b8af-753c65cb9b21
+
+--Creacion de la funcion
+create or replace function FU_Secciones_usuario(p_idu varchar(500))
+returns table
+(
+	r_id_seccion int, r_titulo varchar(500), r_descripcion varchar(500), 
+	r_admin_seccion bool
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select s.id_seccion ,s.titulo ,s.descripcion, su.admin_seccion  from secciones s  
+	inner join secciones_usuario su on s.id_seccion = su.id_seccion  
+	where cast(su.id_usuario as varchar(800)) = p_idu;
+end;
+$BODY$
+
+select * from FU_Secciones_usuario('3b43792d-ec18-49a5-b8af-753c65cb9b21');
+
+
+select * from secciones_usuario;
+delete  from secciones_usuario where id_seccion = 28;
+
+
+delete from secciones where id_seccion = 28;
+
+
+
+
+select * from niveles n ;
+
+delete from niveles where id_nivel = 3 
+
+declare nivel int;
+
+select into nivel COUNT(*) + 1 as Nivel from  niveles n    -- where new.id_seccion
+
+int _nivel 
+
+select    COUNT(*) +1   as Nivel  from  niveles where new.id_seccion
+
+new.nivel = _nivel 
+
+
+-- funcion para ver los niveles por seccion y su numero de preguntas 
+select * from niveles n;
+select * from preguntas p ;
+
+select id_nivel , id_seccion , nivel  from niveles n;
+select id_nivel  from preguntas p;
+
+
+
+
+SELECT
+    n.id_nivel,
+    n.id_seccion,
+    n.nivel,
+    COUNT(p.id_nivel) AS total_preguntas
+FROM
+    niveles n
+LEFT JOIN
+    preguntas p ON n.id_nivel = p.id_nivel
+WHERE
+    n.id_seccion = 1
+GROUP BY
+    n.id_nivel, n.id_seccion, n.nivel
+ORDER BY
+    n.id_nivel;
+   
+   --4
+   select * from secciones s ;
+ select * from preguntas p ;
+
+insert into preguntas (id_nivel, tiempos_segundos, enunciado) values (4,15,'Seleccion el perro');
+
+
+--crear la funcion que retorne la lista de niveles con sus numero de preguntas segun la seccion
+   
+
+select * from FU_Niveles_Preguntas('1');
+
+   create or replace function FU_Niveles_Preguntas(p_id_seccion varchar(50))
+returns table
+(
+	r_id_nivel int, r_id_seccion int, r_nivel varchar(500), r_total_preguntas int
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	SELECT
+    n.id_nivel,
+    n.id_seccion,
+    cast(CONCAT('Nivel ', CAST(n.nivel AS VARCHAR)) as varchar(100)) AS nivel,
+    cast(COUNT(p.id_nivel)as int) AS total_preguntas
+	FROM
+    niveles n
+	LEFT JOIN
+    preguntas p ON n.id_nivel = p.id_nivel
+	WHERE
+    n.id_seccion = cast(p_id_seccion as int)
+	GROUP BY
+    n.id_nivel, n.id_seccion, n.nivel
+	ORDER BY
+    n.id_nivel;
+end;
+$BODY$
+
+
+call sp_insertar_niveles();
+
+--procedure para crear un nivel segun el id de una seccion 
+select * from niveles n ;
+
+call sp_insertar_niveles()
+
+--funcion para listar las pregunta de un nivel 
+select * from preguntas p ;
+
+select * from tipos_preguntas tp ;
+select * from preguntas;
+
+select * from FU_preguntas_nivel1('7');
+drop function FU_preguntas_nivel;
+create or replace function FU_preguntas_nivel1(p_id_nivel varchar(50))
+returns table
+(
+	r_enunciado varchar(900), r_fecha varchar(900), r_tiempo_segundos int, r_estado bool, r_id_pregunta varchar(10), r_ID_p int
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select cast(LEFT(p.enunciado, 80) || '...' as varchar(900) ) as enunciad, cast(to_char(p.fecha_creacion,'DD-MON-YYYY')as varchar(500)) as fecha_crea,
+	p.tiempos_segundos, p.estado, tp.codigo, p.id_pregunta
+	from preguntas p 
+	inner join  tipos_preguntas tp on p.tipo_pregunta= tp.id_tipo_pregunta
+	where p.id_nivel = cast(p_id_nivel as int) order by p.fecha_creacion asc;
+end;
+$BODY$
+
+select * from preguntas p ;
+
+
+
+create table tipos_preguntas(
+	id_tipo_pregunta INT GENERATED ALWAYS AS IDENTITY,
+	titulo varchar(200) not null unique,
+	descripcion varchar(200) not null,
+	estado bool not null default true,
+	opcion_multiple bool not null default false,
+	enunciado_img bool not null default false,
+	timepo_enunciado int not null default 0,
+	opciones_img bool not null default false,
+		primary key (id_tipo_pregunta)
+);
+
+
+--tabla tipo pregunta maestra 
+create table tipos_preguntas_maestra(
+	id_maestro int GENERATED ALWAYS AS IDENTITY,
+	titulo varchar(900) not null,
+	estado bool default true,
+	primary key (id_maestro)
+);
+alter table tipos_preguntas 
+add column tipo_pregunta_maestra int;
+
+alter table tipos_preguntas 
+add constraint FK_id_tipo_pregunta_maestra 
+FOREIGN KEY (tipo_pregunta_maestra) 
+references tipos_preguntas_maestra(id_maestro);
+
+alter table tipos_preguntas_maestra
+  add constraint UQ_titulo_tipo_maestra
+  unique (titulo);
+ 
+
+
+select * from extra_pregunta ep ;
+
+select * from tipos_preguntas;
+select * from preguntas p ;
+
+
+--crear la tabla de respuestas para las preguntas 
+create table respuestas(
+	id_respuesta int GENERATED ALWAYS AS IDENTITY,
+	id_pregunta int not null,
+	opcion varchar (900) not null unique,
+	correcta bool not null default false,
+	estado bool not null default true,
+	eliminado bool not null default false,
+		primary key (id_respuesta)
+);
+
+--crear la tabla para el extra de la pregunta  
+create table extra_pregunta(
+	id_extra int GENERATED ALWAYS AS IDENTITY,
+	id_pregunta int not null,
+	extra varchar(900) not null,
+	estado bool default true,
+	primary key (id_extra)
+);
+
+alter table extra_pregunta 
+add column tiempo_enunciado int not null;
+
+
+
+
+--elminiar el contenido de la tabla pregunta para anadir una nueva colimna
+--y una neuva restrccion 
+delete from preguntas ;
+
+select * from preguntas p ;
+ 
+alter table preguntas 
+add column tipo_pregunta int;
+
+
+--Linkear preguntas con tipo pregunta 
+select * from tipos_preguntas
+
+alter table preguntas 
+add constraint FK_id_tipo_pregunta 
+FOREIGN KEY (tipo_pregunta) 
+references tipos_preguntas(id_tipo_pregunta);
+
+--linkear las repuestas a pregunta 
+alter table respuestas
+add constraint FK_Id_pregunta 
+foreign key (id_pregunta)
+references preguntas(id_pregunta)
+
+--linkear el extra con la pregunta 
+alter table extra_pregunta
+add constraint FK_id_extra_pregunta
+foreign key (id_pregunta)
+references preguntas(id_pregunta)
+
+
+--anadir una tabal de tipo_pregunta_maestra 
+--esta tabla servira para establecer preguntas como opcion multiple 
+--opcion unica etc 
+
+--y tipo pregunta tendra lo personlaizado
+
+
+
+
+
+
+--registrar el primer tipo de pregunta que seria el de seleccionar imagen 
+--con timepo de vista de imagen 
+select * from tipos_preguntas;
+insert into tipos_preguntas
+()
+
+
+select * from tipos_preguntas_maestra;
+insert into tipos_preguntas_maestra (titulo) values ('Opcion Unica')
+
+
+
+
+
+
+select * from FU_tipos_preguntas_maestras();
+--funcion que retorne los tipos de preguntas maestras que exisiten para esocjer al crear un tipo
+create or replace function FU_tipos_preguntas_maestras()
+returns table
+(
+	r_id_maestro int, r_titulo varchar(900)
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select p.id_maestro, p.titulo from tipos_preguntas_maestra p where p.estado;
+end;
+$BODY$
+
+
+delete from tipos_preguntas;
+
+ALTER TABLE tipos_preguntas
+DROP COLUMN timepo_enunciado;
+
+
+alter table tipos_preguntas 
+add column icono varchar(900) not null;
+--insertar tipos de preguntas que sea de opcion multiple 
+--id 1 
+--select * from FU_tipos_preguntas_maestras();
+select * from tipos_preguntas ;
+
+--Primer Plantilla
+insert into tipos_preguntas (titulo, descripcion, opcion_multiple, enunciado_img, tiempo_enunciado, opciones_img, tipo_pregunta_maestra, icono)
+values ('Memorizar con imagenes','El enunciado y las opciones son representadas con imagenes con timepo determinado para memorizar',
+		false, true, true, true, 1,'src/');
+
+
+--Segunda Plantilla
+insert into tipos_preguntas (titulo, descripcion, 
+		opcion_multiple, enunciado_img, tiempo_enunciado, opciones_img, tipo_pregunta_maestra, icono)
+values ('Seleccionar Imagen','Las opciones son representadas con imagenes',
+		false, true, false, true, 1,'src/');
+
+update tipos_preguntas set enunciado_img=false where titulo='Seleccionar Imagen';
+	
+--Tercera Plantilla
+insert into tipos_preguntas (titulo, descripcion, 
+		opcion_multiple, enunciado_img, tiempo_enunciado, opciones_img, tipo_pregunta_maestra, icono)
+values ('Seleccion clasica','Las opciones son representadas con texto',
+		false, false, false, false, 1,'src/');
+	
+	
+	
+select * from tipos_preguntas;
+
+
+--funcion que retornes los tipos de preguntas segun el id del maestro 
+
+select * from FU_plantilla_preguntas_id_maestro('1');
+--drop function FU_plantilla_preguntas_id_maestro
+create or replace function FU_plantilla_preguntas_id_maestro(p_id_maestro varchar(50))
+returns table
+(
+	r_id_tipo_pregunta int, r_titulo varchar(900), r_descripcion varchar(900), r_icono varchar(900),  r_codigo varchar(9)
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select p.id_tipo_pregunta, p.titulo, p.descripcion,p.icono,p.codigo from tipos_preguntas p where p.tipo_pregunta_maestra = cast(p_id_maestro as int) and p.estado;
+end;
+$BODY$
+
+--2 --Memorizar con imagenes 
+--4 --SeleccionClasica
+--3 --Seleccionar Imagen 
+update tipos_preguntas set codigo = 'MEMRZAR' where id_tipo_pregunta=2;
+update tipos_preguntas set codigo = 'SELCCLA' where id_tipo_pregunta=4;
+update tipos_preguntas set codigo = 'SELCIMG' where id_tipo_pregunta=3;
+
+--'../../uploads/iconos/memorizar.png';
+--../../uploads/perfiles/logo_empresa-1690769537460.png
+ alter table tipos_preguntas alter column codigo set not null;
+
+select * from tipos_preguntas tp ;
+ALTER TABLE tipos_preguntas
+DROP COLUMN codigo;
+---añadir un campo codigo de tipo de pregunta para poder seleccionar el componente que contiene la plantilla para crear la pregunta
+--ya que es complicado crear un componente que abarque todas las posibles preguntas.
+alter table tipos_preguntas 
+add column codigo varchar(8) unique;
+
+
+select tp.id_tipo_pregunta, tp.titulo , tp.codigo from tipos_preguntas tp;
+
+--anadir dos campos extras a preguntas
+--Error --> bool por defecto va a tener true e indicara que no se podra usar en un test 
+--en primera instancia porque no tiene las repuestas registras
+--no tiene mas de una respuesta
+--no tiene una respuesta correcta si es de opcion unica 
+-- solo tiene una respuesa si es de opcion multiple 
+
+
+alter table preguntas 
+add column error bool default true not null;
+
+
+alter table preguntas 
+add column error_detalle varchar(900) not null;
+
+
+select * from preguntas p ;
+
+select * from tipos_preguntas tp ;
+--crear un procedimiento para poder crear una pregunta del tipo MEMRZAR
+--esta recibe el enunciado, tiempo para resolver , id tipo de pregunta, y el nivel 
+--en la tabla extra tambien va un registro el cual es la url de la imagen del enunciado en extra y el tiempo del enunciado mas el id de la pregunta
+
+
+
+
+select * from preguntas p ;
+select * from extra_pregunta ep ;
+Create or Replace Procedure SP_Crear_Pregunta_MEMRZAR(
+										p_enunciado varchar(800),
+										p_tiempos_segundos int,
+										p_tipo_pregunta int,
+										p_id_nivel int,
+										p_url_imagen varchar(800),
+										p_tiempo_img int
+										  )
+Language 'plpgsql'
+AS $$
+declare
+	p_id_pregunta_creada int;
+begin
+	if trim(p_enunciado)='' then
+			raise exception 'Enunciado no puede estar vacio';
+	end if;
+	--crear la pregunta
+	insert into preguntas(id_nivel,tiempos_segundos,enunciado,tipo_pregunta,error_detalle)
+				values 	 (p_id_nivel,p_tiempos_segundos,p_enunciado,p_tipo_pregunta,'No existen opciones de respuestas para la pregunta');
+	--ahora obtener el id de la pregunta creada
+	select into p_id_pregunta_creada id_pregunta from preguntas where enunciado = p_enunciado;
+
+	--ahora insertar el detalle de la pregunta en este caso es una imagen para el enunciado y el tiempo para poder verla
+	insert into extra_pregunta(id_pregunta, extra, tiempo_enunciado) 
+				values 		  (p_id_pregunta_creada,p_url_imagen,p_tiempo_img);
+	--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+
+--funcion que devuelve los datos de la ultima pregunta creada segun el id de un nivel 
+--esto servira para anadir las opciones de respuestas
+-- para el tipo MEMRZAR
+--se necesita: ID_Pregunta,Enunciado, Imagen_EXTRA
+
+select p.id_pregunta, p.enunciado, ep.extra  from preguntas p 
+		inner join extra_pregunta ep on p.id_pregunta  =ep.id_pregunta  
+		where p.id_nivel =7 order by p.fecha_creacion desc limit 1;
+
+	
+--funcion que devuelve la funcion 
+	select * from FU_datos_pregunta_MEMRZAR(7);
+create or replace function FU_datos_pregunta_MEMRZAR(p_id_nivel int)
+returns table
+(
+	r_id_pregunta int, r_enunciado varchar(900), r_extra varchar(900)
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select p.id_pregunta, p.enunciado, ep.extra  from preguntas p 
+		inner join extra_pregunta ep on p.id_pregunta  =ep.id_pregunta  
+		where p.id_nivel =p_id_nivel order by p.fecha_creacion desc limit 1;
+	end;
+$BODY$
+
+
+delete from extra_pregunta ;
+delete from preguntas ;
+
+
+select * from FU_datos_pregunta_MEMRZAR(7);
+--15
+select * from FU_datos_pregunta_MEMRZAR_id_pregunta(15);
+create or replace function FU_datos_pregunta_MEMRZAR_id_pregunta(p_id_pregunta int)
+returns table
+(
+	r_id_pregunta int, r_enunciado varchar(900), r_extra varchar(900)
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select p.id_pregunta, p.enunciado, ep.extra  from preguntas p 
+		inner join extra_pregunta ep on p.id_pregunta  =ep.id_pregunta  
+		where p.id_pregunta =p_id_pregunta order by p.fecha_creacion desc limit 1;
+	end;
+$BODY$
+
+select * from FU_imagen_pregunta(15)
+create or replace function FU_imagen_pregunta(p_id_pregunta int)
+returns table
+(
+	 r_url_img varchar(900)
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select ep.extra  from preguntas p inner join extra_pregunta ep on p.id_pregunta = ep.id_pregunta where p.id_pregunta=p_id_pregunta;
+	end;
+$BODY$
+
+select ep.extra  from preguntas p inner join extra_pregunta ep on p.id_pregunta = ep.id_pregunta ;
+
+
+--funcion para ver las respuestas que tiene una pregunta 
+select * from preguntas p;
+select * from extra_pregunta ep ;
+select * from respuestas r where id_pregunta = 25;
+
+select * from tipos_preguntas tp ;
+
+
+select * from FU_repuestas_MEMRZAR(25);
+create or replace function FU_repuestas_MEMRZAR(p_id_pregunta int)
+returns table
+(
+	r_id_repuesta int, r_opcion varchar(900), r_correcta bool, r_estado bool, r_eliminado bool 
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select r.id_respuesta, r.opcion, r.correcta, r.estado, r.eliminado from respuestas r where id_pregunta = p_id_pregunta;
+	end;
+$BODY$
+
+select * from preguntas p where p.id_pregunta =25;
+select opcion from respuestas r where r.id_pregunta =25;
+
+insert into respuestas(id_pregunta, opcion, correcta, estado, eliminado)
+			values(25,'Si',false,true,false)
+
+select * from extra_pregunta ep ;
+
+--../../uploads/respuestas/Walter_White_S5B-1703223678916.png
+
+--hacer update para visualizar una imagen en una respuesta no ingresada por el frontend de momento 
+update respuestas set opcion='../../uploads/respuestas/Walter_White_S5B-1703223678916.png'
+
+select * from FU_ver_img_respuesta_MEMRZAR(1);
+create or replace function FU_ver_img_respuesta_MEMRZAR(p_id_respuesta int)
+returns table
+(
+	 r_url_img varchar(900)
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select opcion from respuestas r where r.id_respuesta =p_id_respuesta;
+	end;
+$BODY$
+
+select * from respuestas r 
+
+
+select * from respuestas r ;
+
+--procedimiento almacenado para anadir una respuesta
+CREATE OR REPLACE PROCEDURE SP_anadir_respuesta_MEMRZAR(
+		p_id_pregunta int,
+		p_url_img varchar(500),
+		p_correcta bool
+		)
+LANGUAGE plpgsql
+AS $procedure$
+Begin
+	insert into respuestas(
+						id_pregunta,
+						opcion,
+						correcta
+						)values
+						(
+						 p_id_pregunta,
+						 p_url_img,
+						 p_correcta
+						);
+
+--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
 ;
