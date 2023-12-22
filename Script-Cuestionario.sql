@@ -398,11 +398,12 @@ select * from tipos_preguntas tp ;
 select * from preguntas;
 
 select * from FU_preguntas_nivel1('7');
-drop function FU_preguntas_nivel;
+drop function FU_preguntas_nivel1;
 create or replace function FU_preguntas_nivel1(p_id_nivel varchar(50))
 returns table
 (
-	r_enunciado varchar(900), r_fecha varchar(900), r_tiempo_segundos int, r_estado bool, r_id_pregunta varchar(10), r_ID_p int
+	r_enunciado varchar(900), r_fecha varchar(900), r_tiempo_segundos int, r_estado bool, r_id_pregunta varchar(10), r_ID_p int,
+	r_error bool, r_error_detalle varchar(50)
 )
 language 'plpgsql'
 as
@@ -410,12 +411,15 @@ $BODY$
 begin
 	return query
 	select cast(LEFT(p.enunciado, 80) || '...' as varchar(900) ) as enunciad, cast(to_char(p.fecha_creacion,'DD-MON-YYYY')as varchar(500)) as fecha_crea,
-	p.tiempos_segundos, p.estado, tp.codigo, p.id_pregunta
+	p.tiempos_segundos, p.estado, tp.codigo, p.id_pregunta, p.error, p.error_detalle
 	from preguntas p 
 	inner join  tipos_preguntas tp on p.tipo_pregunta= tp.id_tipo_pregunta
 	where p.id_nivel = cast(p_id_nivel as int) order by p.fecha_creacion asc;
 end;
 $BODY$
+
+
+select * from preguntas p;
 
 select * from preguntas p ;
 
@@ -732,6 +736,7 @@ $BODY$
 
 
 delete from extra_pregunta ;
+delete from respuestas ;
 delete from preguntas ;
 
 
@@ -857,3 +862,168 @@ Begin
 END;
 $procedure$
 ;
+
+--Hacer un trigger que verifique el numero de respuestas correcta con estado true en una pregunta de opcion Unica 
+--ejecturarlo cada vez que se quiera anadir una nueva opcion de respuesta y cuando inserte una correcta 
+--colocarle el bool error en false de la tabla pregunta
+
+--en el trigger de insertar en repuestas
+--	1. Se obtiene el id de la pregunta, para concectarla con la tabla pregunta
+
+
+select * from respuestas r where r.id_pregunta =24;
+--con esto se obtiene el id del pregunta maestro para saber si es respuesta unica o multiple 
+select tp.opcion_multiple  from respuestas r 
+inner join preguntas p on r.id_pregunta =r.id_pregunta 
+inner join tipos_preguntas tp ON p.tipo_pregunta =tp.id_tipo_pregunta
+where r.id_respuesta=2 limit 1;
+
+--Si el tipo de pregunta en opcion multiple es false, entonces hacer la consulta para contar cuantas respuestas
+--como correctas tiene esa pregunta 
+select case when count(*) >=1 then true else false end   from respuestas r where r.id_pregunta = 24  and r.estado and r.correcta 
+select *  from respuestas r where r.id_pregunta = 24  and r.estado and r.correcta 
+
+
+select * from respuestas r where not r.correcta 
+
+
+select * from preguntas p ;
+--Creacion del trigger 
+--funcion del trigger 
+create or replace function FU_TR_anadir_respuesta() returns trigger 
+as 
+$$
+---Declarar variables
+declare
+	opciones_multiples_op bool;
+	contiene_correctas bool;
+	--Pref_cat varchar(5);
+begin
+	--primero consulta si la la pregunta admite opciones multiples o solo una 
+	select into opciones_multiples_op tp.opcion_multiple  from preguntas p inner join tipos_preguntas tp on p.tipo_pregunta =tp.id_tipo_pregunta 
+	where p.id_pregunta = new.id_pregunta;
+		
+	--hacer un update al registro de la pregunta colocando el bool error = falso porque ya se esta ingresando una repuesta
+
+
+	--hacer el conteo de opciones marcadas como correctas en caso de que solo admita una opcion not
+	if opciones_multiples_op = false then 
+		--consultar cuantas preguntas correctas tiene marcadas porque solo admite 1 este tipo de pregunta
+		select into contiene_correctas case when count(*) >=1 then true else false end  from respuestas r where r.id_pregunta = new.id_pregunta  and r.estado and r.correcta; 
+		--comprar si es true es porque ya tiene respuestas marcadas como correctas 
+		if contiene_correctas then 
+			raise exception 'Solo se admite un opcion de respuesta como correcta';
+		else 
+			update preguntas set error = true, error_detalle ='Esta pregunta no contiende opcion(es) correta(s)' where id_pregunta =new.id_pregunta;
+		end if;
+		--else if si no contiene correctas entonces actualizar el registro de preguntas bool error = true y detalle 'esta pregunta no contiende opcion(es) correta(s)'
+		if new.correcta then
+			update preguntas set error = false, error_detalle ='' where id_pregunta =new.id_pregunta;
+		end if;
+		--if si la opcion es marcada como correcta acualizar el registro de preguntas bool error= false 
+	end if;
+return new;
+end
+$$
+language 'plpgsql';
+
+create trigger TR_Crear_respuesta
+before insert 
+on respuestas
+for each row 
+execute procedure FU_TR_anadir_respuesta();
+
+
+
+--obtener la pregunta a la que se le esta andiendo las repuestas
+
+select * from preguntas p where p.id_pregunta =25;
+
+select  tp.opcion_multiple  from respuestas r 
+	inner join preguntas p on r.id_pregunta =r.id_pregunta 
+	inner join tipos_preguntas tp ON p.tipo_pregunta =tp.id_tipo_pregunta
+	where /*r.id_respuesta=new.id_respuesta limit*/ r.id_pregunta=25 limit 1;
+
+select tp.opcion_multiple  from preguntas p inner join tipos_preguntas tp on p.tipo_pregunta =tp.id_tipo_pregunta 
+where p.id_pregunta = 25
+
+
+
+if (opciones_multiples_op = false) then 
+		--consultar cuantas preguntas correctas tiene marcadas porque solo admite 1 este tipo de pregunta
+		select into contiene_correctas case when count(*) >=1 then true else false end  from respuestas r where r.id_pregunta = new.id_pregunta  and r.estado and r.correcta; 
+		--comprar si es true es porque ya tiene respuestas marcadas como correctas 
+		if (contiene_correctas) then 
+			raise exception 'Solo se admite un opcion de respuesta como correcta';
+		end if;
+	end if;
+
+
+select case when count(*) >=1 then true else false end  
+	from respuestas r where r.id_pregunta = 25
+	and r.estado and r.correcta; 
+
+	new.id_pregunta  and r.estado and r.correcta; 
+
+
+select * from preguntas p 
+
+select * from test t ;
+
+--anadir dos columnas a test 
+--una de error de tipo bool
+--otra de tipo varchar para el detalle del error 
+alter table test 
+add column error_detalle varchar(500);
+
+select * from test t ;
+
+/*
+18
+ */
+delete from test where id_test=13;
+
+update test set error = true, error_detalle = 'No contiene secciones a evaluar'
+where id_test = 18
+
+
+select * from test t ;
+
+--cast(LEFT(p.enunciado, 80) || '...' as varchar(900) ) as enunciad, cast(to_char(p.fecha_creacion,'DD-MON-YYYY')as varchar(500)) as fecha_crea,
+
+--funcion para listar los test segun el id de un usuario
+select id_test , cast(LEFT(titulo, 80) || '...' as varchar(900) ) as titulo, 
+	cast(to_char(fecha_hora_inicio,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_inicio,
+	cast(to_char(fecha_hora_cierre,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_cierre,
+	estado, suspendio, descripcion, ingresos_permitidos, cast(tokens as varchar(900)), error, error_detalle
+	from test 
+	where cast(id_user_crea as varchar(900))= '3b43792d-ec18-49a5-b8af-753c65cb9b21' and estado = true;
+
+--funcion que retorna todos los test elaborados por el usuario
+CREATE OR REPLACE FUNCTION FU_test_usuario(p_user_id character varying)
+ RETURNS TABLE(verification integer, mensaje character varying)
+ LANGUAGE plpgsql
+AS $function$
+declare
+	User_Deshabili bool;
+	User_Exit bool;
+begin
+	select id_test , cast(LEFT(titulo, 80) || '...' as varchar(900) ) as titulo, 
+	cast(to_char(fecha_hora_inicio,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_inicio,
+	cast(to_char(fecha_hora_cierre,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_cierre,
+	estado, suspendio, descripcion, ingresos_permitidos, cast(tokens as varchar(900)), error, error_detalle
+	from test 
+	where cast(id_user_crea as varchar(900))= p_user_id --and estado = true;
+end;
+$function$
+;
+
+
+
+
+
+select 
+	cast(to_char(fecha_hora_inicio,'DD-MON-YYYY  HH24:MI')as varchar(500)) as fecha_hora_inicio
+	from test 
+	where cast(id_user_crea as varchar(900))= '3b43792d-ec18-49a5-b8af-753c65cb9b21' and estado = true;
+
