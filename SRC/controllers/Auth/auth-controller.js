@@ -16,9 +16,10 @@ const prueba_conexion = async (req, res, next) => {
 //VerficarUsuario y otorgar token
 const verificaUser = async (req, res, next) => {
     try {
-        const { correo, contra } = req.body;
+        const { email, password } = req.body;
+        console.log(email + "-" + password);
+        const users = await pool.query('select * from Verification_Auth($1,$2)', [email, password]);
 
-        const users = await pool.query('select * from Verification_Auth($1,$2)', [correo, contra]);
         console.log(users);
         console.log(users.rows[0]);
         let verification = users.rows[0];
@@ -36,7 +37,7 @@ const verificaUser = async (req, res, next) => {
 
         const token = jwt.sign({
             exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30,
-            email: correo,
+            email: email,
         }, 'SECRET') //el secret deberia estan en el .env
 
         const serialized = serialize('myTokenName', token, {
@@ -56,7 +57,7 @@ const verificaUser = async (req, res, next) => {
 
         //Guardar el id del usuario en el json
         //Ver si el usuario es admin general y guardar en json para que se guarde como cookie
-        const data_auth = await pool.query('select  * from Auth_Data($1,$2)', [correo, contra]);
+        const data_auth = await pool.query('select  * from Auth_Data($1)', [email]);
         console.log(data_auth.rows[0]);
         //parsear los data_auth para enviar en un solo json
         let data = data_auth.rows[0];
@@ -65,6 +66,7 @@ const verificaUser = async (req, res, next) => {
 
         //Ver si el usuario es admin de area y guardar en json para que se guarde como cookie
         return res.json({ verification: "true", token: token, id: userd });
+
     } catch (error) {
         next(error);
     }
