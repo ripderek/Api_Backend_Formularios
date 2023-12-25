@@ -1000,20 +1000,24 @@ select id_test , cast(LEFT(titulo, 80) || '...' as varchar(900) ) as titulo,
 	where cast(id_user_crea as varchar(900))= '3b43792d-ec18-49a5-b8af-753c65cb9b21' and estado = true;
 
 --funcion que retorna todos los test elaborados por el usuario
+select * from FU_test_usuario('3b43792d-ec18-49a5-b8af-753c65cb9b21');
+
 CREATE OR REPLACE FUNCTION FU_test_usuario(p_user_id character varying)
- RETURNS TABLE(verification integer, mensaje character varying)
+ RETURNS TABLE(
+ 	r_id_test int, r_titulo character varying, r_fecha_incio character varying, r_fecha_fin character varying, r_estado bool,
+ 	r_suspendido bool, r_descripcion character varying, r_ingresos_permitidos int, r_token character varying, r_error bool,
+ 	r_error_detalle character varying
+ 	)
  LANGUAGE plpgsql
 AS $function$
-declare
-	User_Deshabili bool;
-	User_Exit bool;
 begin
+	return query
 	select id_test , cast(LEFT(titulo, 80) || '...' as varchar(900) ) as titulo, 
 	cast(to_char(fecha_hora_inicio,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_inicio,
 	cast(to_char(fecha_hora_cierre,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_cierre,
-	estado, suspendio, descripcion, ingresos_permitidos, cast(tokens as varchar(900)), error, error_detalle
+	estado, suspendio, descripcion, ingresos_permitidos, cast(tokens as varchar(900)), case when (select Count(*) from errores_test er where er.id_test=id_test and estado )>=1 then true else false end as error, error_detalle
 	from test 
-	where cast(id_user_crea as varchar(900))= p_user_id --and estado = true;
+	where cast(id_user_crea as varchar(900))= p_user_id; --and estado = true;
 end;
 $function$
 ;
@@ -1027,3 +1031,237 @@ select
 	from test 
 	where cast(id_user_crea as varchar(900))= '3b43792d-ec18-49a5-b8af-753c65cb9b21' and estado = true;
 
+drop table errores_test
+
+--crea tabla de errores_test 
+create table errores_test(
+	id_error INT GENERATED ALWAYS AS IDENTITY,
+	id_test int not null,
+	error_detalle varchar(300) not null ,
+	Estado bool Default true not null,
+		Primary Key(id_error)
+);
+
+select * from test t ;
+alter table errores_test 
+add constraint FK_ID_Test_errores
+FOREIGN KEY (id_test) 
+references test(id_test);
+
+
+--insertar errores para el test que esta creado.
+select * from errores_test;
+select * from test t ;
+
+insert into errores_test(id_test,error_detalle)values(18,'El test no contiene secciones');
+insert into errores_test(id_test,error_detalle)values(18,'El test no contiene participantes');
+--insert into errores_test(id_test,error_detalle)values(18,'El test no contiene participantes');
+
+update errores_test set estado=true 
+
+select * from errores_test
+
+select id_test , cast(LEFT(titulo, 80) || '...' as varchar(900) ) as titulo, 
+	cast(to_char(fecha_hora_inicio,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_inicio,
+	cast(to_char(fecha_hora_cierre,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_cierre,
+	estado, suspendio, descripcion, ingresos_permitidos, cast(tokens as varchar(900)),
+	case when (select Count(*) from errores_test er where er.id_test=id_test and estado )>=1 then true else false end as error, 
+	error_detalle
+	from test 
+	
+	where cast(id_user_crea as varchar(900))= p_user_id; --and estado = true;
+
+
+
+
+
+drop procedure sp_insertar_test
+CREATE OR REPLACE PROCEDURE public.sp_insertar_test(
+	IN p_titulo character varying, IN p_fecha_hora_cierre timestamp with time zone, IN p_fecha_hora_inicio timestamp with time zone, IN p_id_user_crea character varying, IN p_descripcion character varying, IN p_ingresos_permitidos integer)
+ LANGUAGE plpgsql
+AS $procedure$ 
+declare 
+	p_id_test int;
+BEGIN
+    INSERT INTO Test (Titulo, Fecha_hora_cierre, Fecha_hora_inicio, ID_User_crea, Descripcion, Ingresos_Permitidos)
+    VALUES (p_Titulo, p_Fecha_hora_cierre, p_Fecha_hora_inicio, cast(p_ID_User_crea as uuid), p_Descripcion, p_Ingresos_Permitidos);
+   	
+   select into p_id_test t.id_test  from test t where t.titulo =p_titulo;
+   --insertarlos errores la crear un test 
+   insert into errores_test(id_test,error_detalle)values(p_id_test,'El test no contiene secciones');
+   insert into errores_test(id_test,error_detalle)values(p_id_test,'El test no contiene participantes');
+ EXCEPTION
+    -- Si ocurre algún error, revierte la transacción
+    WHEN OTHERS THEN
+        ROLLBACK;
+         RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+--nuveov procedimineto corregido
+CREATE OR REPLACE PROCEDURE public.sp_insertar_test(
+    IN p_titulo character varying,
+    IN p_fecha_hora_cierre timestamp with time zone,
+    IN p_fecha_hora_inicio timestamp with time zone,
+    IN p_id_user_crea character varying,
+    IN p_descripcion character varying,
+    IN p_ingresos_permitidos integer
+)
+LANGUAGE plpgsql
+AS $procedure$ 
+DECLARE 
+    p_id_test int;
+BEGIN
+    INSERT INTO Test (Titulo, Fecha_hora_cierre, Fecha_hora_inicio, ID_User_crea, Descripcion, Ingresos_Permitidos)
+    VALUES (p_titulo, p_fecha_hora_cierre, p_fecha_hora_inicio, cast(p_id_user_crea as uuid), p_descripcion, p_ingresos_permitidos);
+   
+    SELECT INTO p_id_test id_test FROM test WHERE titulo = p_titulo;
+
+    -- Insertar errores al crear un test 
+    INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene secciones');
+    INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene participantes');
+    
+EXCEPTION
+    -- Si ocurre algún error, revierte la transacción
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;
+END;
+$procedure$;
+
+drop procedure sp_insertar_test
+CREATE OR REPLACE PROCEDURE public.sp_insertar_test(
+    IN p_titulo character varying,
+    IN p_fecha_hora_cierre TIMESTAMP,
+    IN p_fecha_hora_inicio TIMESTAMP,
+    IN p_id_user_crea character varying,
+    IN p_descripcion character varying,
+    IN p_ingresos_permitidos integer
+)
+LANGUAGE plpgsql
+AS $procedure$ 
+DECLARE 
+    p_id_test int;
+BEGIN
+    INSERT INTO Test (Titulo, Fecha_hora_cierre, Fecha_hora_inicio, ID_User_crea, Descripcion, Ingresos_Permitidos)
+    VALUES (
+        p_titulo,
+        p_fecha_hora_cierre,
+        p_fecha_hora_inicio,
+        --cast(to_char(fecha_hora_inicio,'DD-MON-YYYY HH24:MI')as varchar(500))
+        cast(p_id_user_crea as uuid),
+        p_descripcion,
+        p_ingresos_permitidos
+    );
+   
+    SELECT INTO p_id_test id_test FROM test WHERE titulo = p_titulo;
+
+    -- Insertar errores al crear un test 
+    INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene secciones');
+    INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene participantes');
+    
+    
+EXCEPTION
+    -- Si ocurre algún error, revierte la transacción
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM USING HINT = 'Revisa la transacción principal.';
+END;
+$procedure$;
+
+
+
+select * from test t 
+
+--parametros para crear un test 
+	IN p_titulo character varying,
+	IN p_fecha_hora_cierre timestamp with time zone,
+	IN p_fecha_hora_inicio timestamp with time zone, 
+	IN p_id_user_crea character varying, 
+	IN p_descripcion character varying,
+	IN p_ingresos_permitidos integer)
+
+	
+delete from errores_test;
+delete from test;
+
+delete from participantes_test 
+
+
+
+select * from participantes_test pt;
+select * from test t ;
+
+
+ALTER TABLE test 
+DROP COLUMN error_detalle;
+
+
+
+select id_test , cast(LEFT(titulo, 80) || '...' as varchar(900) ) as titulo, 
+	cast(to_char(fecha_hora_inicio,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_inicio,
+	cast(to_char(fecha_hora_cierre,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_cierre,
+	estado, suspendio, descripcion, ingresos_permitidos, cast(tokens as varchar(900)), case when (select Count(*) from errores_test er where er.id_test=id_test and estado )>=1 then true else false end as error, error_detalle
+	from test 
+	
+	
+	select * from usuario u 
+	
+	select * from fu_test_usuario('3b43792d-ec18-49a5-b8af-753c65cb9b21');
+	
+	drop function fu_test_usuario
+CREATE OR REPLACE FUNCTION public.fu_test_usuario(p_user_id character varying)
+ RETURNS TABLE(r_id_test integer, r_titulo character varying, r_fecha_incio character varying, r_fecha_fin character varying, 
+ r_estado character varying, 
+ r_suspendido boolean, r_descripcion character varying, r_ingresos_permitidos integer, r_token character varying, r_error boolean)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select id_test , cast(LEFT(titulo, 80) || '...' as varchar(900) ) as titulo, 
+	cast(to_char(fecha_hora_inicio,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_inicio,
+	cast(to_char(fecha_hora_cierre,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_cierre,
+	estado_detalle, 
+	suspendio, descripcion, ingresos_permitidos, cast(tokens as varchar(900)), case when (select Count(*) from errores_test er where er.id_test=id_test and estado )>=1 then true else false end as error
+	from test 
+	where cast(id_user_crea as varchar(900))= p_user_id; --and estado = true;
+end;
+$function$
+;
+
+
+
+--Crear una columna Estado2 para saber si:
+	--Un test no puede publicarse por errores (Erroneo)
+	--Un test esta apto para iniciarse (Verificado)
+	--Un test esta en proceso (En proceso)
+	--Un test fue Terminado (Terminado) 
+
+--en el procedimiento agregar el primer estado (Erroneo)
+
+select * from test t 
+
+
+--funcion para listar los errores que tiene un test y que se tienen que corregir para pasar a estado = Verificado 
+
+select * from FU_errores_test(64);
+CREATE OR REPLACE FUNCTION public.FU_errores_test(p_id_test int)
+ RETURNS TABLE(
+ 	r_id_error int,
+ 	r_error_detalle varchar(800),
+ 	r_estado bool
+ )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select et.id_error, et.error_detalle , et.estado  from errores_test et
+	where et.id_test= p_id_test and et.estado; --and estado = true;
+end;
+$function$
+;
+
+
+select * from errores_test et ;
