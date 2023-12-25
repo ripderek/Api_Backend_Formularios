@@ -14,7 +14,7 @@ const userRoutes = require('./routes/user-routes.js');
 const seccionesRoutes = require('./routes/secciones-routes.js');
 const nivelesRoutes = require('./routes/niveles-routes.js');
 const preguntasRoutes = require('./routes/preguntas-routes.js');
-const participantesRoutes=require('./routes/participantes-routes.js');
+const participantesRoutes = require('./routes/participantes-routes.js');
 const testRoutes = require('./routes/test-routes.js');
 
 //config entorno
@@ -46,8 +46,8 @@ app.use('/users', authenticateToken, userRoutes)
 app.use('/secciones', authenticateToken, seccionesRoutes)
 app.use('/niveles', authenticateToken, nivelesRoutes);
 app.use('/preguntas', authenticateToken, preguntasRoutes);
-app.use('/participantes',authenticateToken, participantesRoutes);
-app.use('/test',authenticateToken,testRoutes);
+app.use('/participantes', authenticateToken, participantesRoutes);
+app.use('/test', authenticateToken, testRoutes);
 
 //rutas protegidas con middleare, es decir, se necesita un token valido para acceder
 //app.use('/api/user', authenticateToken, userRoutes);
