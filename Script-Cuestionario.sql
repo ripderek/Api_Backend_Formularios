@@ -1073,8 +1073,12 @@ select id_test , cast(LEFT(titulo, 80) || '...' as varchar(900) ) as titulo,
 
 
 
+delete from errores_test;
+delete from participantes_test ;
+delete from test ;
 
-
+--este 1
+--verificado no sirve
 drop procedure sp_insertar_test
 CREATE OR REPLACE PROCEDURE public.sp_insertar_test(
 	IN p_titulo character varying, IN p_fecha_hora_cierre timestamp with time zone, IN p_fecha_hora_inicio timestamp with time zone, IN p_id_user_crea character varying, IN p_descripcion character varying, IN p_ingresos_permitidos integer)
@@ -1088,8 +1092,8 @@ BEGIN
    	
    select into p_id_test t.id_test  from test t where t.titulo =p_titulo;
    --insertarlos errores la crear un test 
-   insert into errores_test(id_test,error_detalle)values(p_id_test,'El test no contiene secciones');
-   insert into errores_test(id_test,error_detalle)values(p_id_test,'El test no contiene participantes');
+   --insert into errores_test(id_test,error_detalle)values(p_id_test,'El test no contiene secciones');
+   --insert into errores_test(id_test,error_detalle)values(p_id_test,'El test no contiene participantes');
  EXCEPTION
     -- Si ocurre algún error, revierte la transacción
     WHEN OTHERS THEN
@@ -1099,8 +1103,9 @@ END;
 $procedure$
 ;
 
-
+--este
 --nuveov procedimineto corregido
+--no sirve
 CREATE OR REPLACE PROCEDURE public.sp_insertar_test(
     IN p_titulo character varying,
     IN p_fecha_hora_cierre timestamp with time zone,
@@ -1113,15 +1118,21 @@ LANGUAGE plpgsql
 AS $procedure$ 
 DECLARE 
     p_id_test int;
-BEGIN
-    INSERT INTO Test (Titulo, Fecha_hora_cierre, Fecha_hora_inicio, ID_User_crea, Descripcion, Ingresos_Permitidos)
+   p_fecha_hora_cierre_final timestamp with time zone;
+    p_fecha_hora_inicio_final timestamp with time zone;
+begin
+	 -- Ajustar la zona horaria
+    p_fecha_hora_cierre_final := p_fecha_hora_cierre AT TIME ZONE 'UTC';
+    p_fecha_hora_inicio_final := p_fecha_hora_inicio AT TIME ZONE 'UTC';
+
+    INSERT INTO Test (Titulo, p_fecha_hora_cierre_final, p_fecha_hora_inicio_final, ID_User_crea, Descripcion, Ingresos_Permitidos)
     VALUES (p_titulo, p_fecha_hora_cierre, p_fecha_hora_inicio, cast(p_id_user_crea as uuid), p_descripcion, p_ingresos_permitidos);
    
     SELECT INTO p_id_test id_test FROM test WHERE titulo = p_titulo;
 
     -- Insertar errores al crear un test 
-    INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene secciones');
-    INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene participantes');
+    --INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene secciones');
+    --INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene participantes');
     
 EXCEPTION
     -- Si ocurre algún error, revierte la transacción
@@ -1131,7 +1142,55 @@ EXCEPTION
 END;
 $procedure$;
 
+
+
+-- DROP PROCEDURE public.sp_insertar_test(varchar, timestamp, timestamp, varchar, varchar, int4);
+
+CREATE OR REPLACE PROCEDURE public.sp_insertar_test(IN p_titulo character varying, IN p_fecha_hora_cierre timestamp without time zone, IN p_fecha_hora_inicio timestamp without time zone, IN p_id_user_crea character varying, IN p_descripcion character varying, IN p_ingresos_permitidos integer)
+ LANGUAGE plpgsql
+AS $procedure$ 
+DECLARE 
+    p_id_test int;
+BEGIN
+    INSERT INTO Test (Titulo, Fecha_hora_cierre, Fecha_hora_inicio, ID_User_crea, Descripcion, Ingresos_Permitidos)
+    VALUES (
+        p_titulo,
+        p_fecha_hora_cierre,
+        p_fecha_hora_inicio,
+        --cast(to_char(fecha_hora_inicio,'DD-MON-YYYY HH24:MI')as varchar(500))
+        cast(p_id_user_crea as uuid),
+        p_descripcion,
+        p_ingresos_permitidos
+    );
+   
+    SELECT INTO p_id_test id_test FROM test WHERE titulo = p_titulo;
+
+    -- Insertar errores al crear un test 
+    --INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene secciones');
+    --INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene participantes');
+    
+    
+EXCEPTION
+    -- Si ocurre algún error, revierte la transacción
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM USING HINT = 'Revisa la transacción principal.';
+END;
+$procedure$
+;
+
+
+
+
+
+
+
+
+
+
 drop procedure sp_insertar_test
+--este 2 
+--tampoco
 CREATE OR REPLACE PROCEDURE public.sp_insertar_test(
     IN p_titulo character varying,
     IN p_fecha_hora_cierre TIMESTAMP,
@@ -1159,8 +1218,8 @@ BEGIN
     SELECT INTO p_id_test id_test FROM test WHERE titulo = p_titulo;
 
     -- Insertar errores al crear un test 
-    INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene secciones');
-    INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene participantes');
+    --INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene secciones');
+    --INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene participantes');
     
     
 EXCEPTION
@@ -1265,3 +1324,369 @@ $function$
 
 
 select * from errores_test et ;
+
+select * from test t ;
+select * from fu_detalle_test_id(64);
+--funcion para ver el detalle del test, es decir, todos los datos 
+drop function fu_detalle_test_id(int)
+CREATE OR REPLACE FUNCTION public.fu_detalle_test_id(p_id_test int)
+ RETURNS TABLE(
+ r_titulo character varying,
+  r_titulo_completo character varying,
+ r_fecha_incio character varying, 
+ r_fecha_fin character varying, 
+ r_estado character varying, 
+ r_suspendido boolean, 
+ r_descripcion character varying, 
+ r_ingresos_permitidos integer, 
+ r_token character varying, 
+ r_error boolean,
+ r_numero_secciones int,
+ r_numero_participantes int)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	--anadir el numero de secciones que tiene ese test 
+	--anadir el numero de participantes que tiene el test
+	select cast(LEFT(titulo, 80) || '...' as varchar(900) ) as titulo, 
+	titulo,
+	cast(to_char(fecha_hora_inicio,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_inicio,
+	cast(to_char(fecha_hora_cierre,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_cierre,
+	estado_detalle, 
+	suspendio, descripcion, ingresos_permitidos, cast(tokens as varchar(900)), 
+	case when (select Count(*) from errores_test er where er.id_test=p_id_test and estado )>=1 then true else false end as error,
+	(select cast(COUNT(*)as int) from test_secciones ts where ts.estado and ts.id_test=p_id_test),
+	(select cast(COUNT(*)as int) from participantes_test pt where pt.estado and id_test=p_id_test)
+	from test 
+	where id_test = p_id_test; --cast(id_user_crea as varchar(900))= p_user_id; --and estado = true;
+end;
+$function$
+;
+
+
+select * from participantes p;
+
+
+--funcion para listar los participantes de un test mediante el id test 
+select pt.id_participante_test ,pt.fecha_add ,pt.supero_limite ,pt.estado ,
+		p.id_participante ,p.correo_institucional ,p.nombres_apellidos ,p.tipo_identificacion ,p.identificacion ,p.numero_celular
+from participantes_test pt 
+inner join participantes p on pt.id_participante =p.id_participante 
+where pt.id_test =64;
+
+
+select * from Fu_participantes_test_id(64);
+--funcion para retornar los participantes de un test mediante el id 
+CREATE OR REPLACE FUNCTION public.Fu_participantes_test_id(p_id_test int)
+ RETURNS TABLE(
+ r_id_participante_test int,
+ r_fecha_add character varying,
+ r_supero_limite bool,
+ r_estado_particpante bool,
+ r_id_participante character varying,
+ r_correo_institucional character varying,
+ r_nombres_apellidos character varying,
+ r_tipo_identificacion character varying,
+ r_identificacion character varying,
+ r_numero_celular character varying
+ )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select pt.id_participante_test ,cast(to_char(pt.fecha_add,'DD-MON-YYYY')as varchar(500)) as Fecha
+		,pt.supero_limite ,pt.estado ,
+		cast(p.id_participante as varchar(800)) as id_participante ,p.correo_institucional ,p.nombres_apellidos ,p.tipo_identificacion ,p.identificacion ,p.numero_celular
+	from participantes_test pt 
+	inner join participantes p on pt.id_participante =p.id_participante 
+	where pt.id_test =p_id_test;
+end;
+$function$
+;
+
+
+
+--funcion para listar a todos los participantes de 10 en 10 
+select * from Fu_lista_participantes();
+
+CREATE OR REPLACE FUNCTION public.Fu_lista_participantes()
+ RETURNS TABLE(
+r_id_participante character varying,
+r_correo_institucional character varying,
+r_nombres_apellidos character varying,
+r_tipo_identificacion character varying,
+r_identificacion character varying,
+r_numero_celular character varying
+ )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select cast(id_participante as varchar(500)), correo_institucional, nombres_apellidos, tipo_identificacion, identificacion, 
+	numero_celular
+	from participantes p where estado order by nombres_apellidos asc limit 7;
+end;
+$function$
+;
+
+--funcion para buscar partipantes por palabra clave se
+
+select * from Fu_lista_participantes_bucar('Alexander Vaca');
+
+CREATE OR REPLACE FUNCTION public.Fu_lista_participantes_bucar(p_palabra_clave varchar(700))
+ RETURNS TABLE(
+r_id_participante character varying,
+r_correo_institucional character varying,
+r_nombres_apellidos character varying,
+r_tipo_identificacion character varying,
+r_identificacion character varying,
+r_numero_celular character varying
+ )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select cast(id_participante as varchar(500)), correo_institucional, nombres_apellidos, tipo_identificacion, identificacion, 
+	numero_celular
+	from participantes p where ((nombres_apellidos ILIKE '%' || p_palabra_clave || '%') or (correo_institucional ILIKE '%' || p_palabra_clave || '%')
+								or (identificacion ILIKE '%' || p_palabra_clave || '%') or (numero_celular ILIKE '%' || p_palabra_clave || '%')) and estado
+	order by nombres_apellidos asc limit 7;
+end;
+$function$
+;
+
+WHERE (nombres ILIKE '%' || palabra_clave || '%') or (correo_personal  ILIKE '%' || palabra_clave || '%') or (correo_institucional  ILIKE '%' || palabra_clave || '%') or (numero_celular  ILIKE '%' || palabra_clave || '%') or (nombre_firma  ILIKE '%' || palabra_clave || '%') or (cast(id_user as varchar(500)) ILIKE '%' || palabra_clave || '%') or (identificacion  ILIKE '%' || palabra_clave || '%')
+
+
+
+select p.correo_institucional ,
+		p.nombres_apellidos ,
+		p.tipo_identificacion,
+		p.identificacion,
+		p.numero_celular  
+from participantes p ;
+
+
+select * from participantes p 
+
+delete from participantes where correo_institucional='rcoelloc@uteq.edu.ec'
+
+
+--modificar el SP donde se ingresa un participante a un test para quitarle el error de que no hay participantes 
+
+-- DROP PROCEDURE public.sp_crear_participantes_test(varchar, int4);
+
+CREATE OR REPLACE PROCEDURE public.sp_crear_participantes_test(IN p_id_participante character varying, IN p_id_test integer)
+ LANGUAGE plpgsql
+AS $procedure$ 
+BEGIN
+    INSERT INTO participantes_test (id_participante,id_test)
+    VALUES (cast(p_id_participante as uuid),p_id_test);
+   --quitar el error de que no existen participantes 
+   --update errores_test set estado = false where id_test =p_id_test and error_detalle='El test no contiene participantes';
+ EXCEPTION
+    -- Si ocurre algún error, revierte la transacción
+    WHEN OTHERS THEN
+        ROLLBACK;
+        raise;
+END;
+$procedure$
+;
+
+select * from errores_test et;
+
+--colocar un unique para que no se repita el id_participante y el id_test
+select * from participantes_test pt 
+
+delete from participantes_test
+
+SELECT column_name, data_type, character_maximum_length
+FROM information_schema.columns
+WHERE table_name = 'participantes_test' order by column_name asc;
+
+
+
+alter table participantes_test
+  add constraint UQ_Test_id_participante
+  unique (id_participante,id_test);
+ 
+ 
+ alter table participantes_test
+ drop constraint UQ_Test_id_participante
+ 
+ 
+ --crear una funcion que verifique todo los estados del test y que este se llame desde el trigger de insertar 
+ --y el trigger de update 
+ 
+ --verifica si el test tiene participantes con estado true 
+select * from participantes_test pt ;
+
+
+
+ create or replace function FU_TR_test_participantes() returns trigger 
+as 
+$$
+---Declarar variables
+declare
+	p_tiene_participantes bool;
+	p_tiene_registro bool;
+begin
+	--primero verificar si tiene participantes activos el test
+	 select into p_tiene_participantes case when COunt(*)>0 then true else false end from participantes_test pt 
+ 	where pt.id_test =new.id_test and estado ;
+	--Verificar si tiene registro de errores de tipo pariticpantes en la tabla errores_test
+ 	select into p_tiene_registro case when COUNT(*)>0 then true else false 
+	end from errores_test et where et.id_test =new.id_test and et.error_detalle ='El test no contiene participantes';
+			
+ 	--si tiene participantes con estado true entonces actualizar el registro de errores_test y poner 
+ 	--false el error contiene participantes
+	if p_tiene_participantes then 
+		   update errores_test set estado = false where id_test =new.id_test and error_detalle='El test no contiene participantes';
+	else 
+			--si no tiene participantes verificar si ya existe el registro para crear o modificarlo 
+			if p_tiene_registro then 
+					--como si tiene registro y el numero de participantes es 0 entonces colocar el estado en false
+					 update errores_test set estado = true where id_test =new.id_test and error_detalle='El test no contiene participantes';
+			else 
+					--como no existe registro entonces crearlo 
+			insert into errores_test(id_test,error_detalle)values(new.id_test,'El test no contiene participantes');
+			end if;
+	end if;
+   
+return new;
+end
+$$
+language 'plpgsql';
+
+create trigger TR_Test_Participantes_after
+after insert 
+on participantes_test
+for each row 
+execute procedure FU_TR_test_participantes();
+
+
+--lo mismo pero para cuando se elimine un registro 
+create or replace function FU_TR_test_participantes_delete() returns trigger 
+as 
+$$
+---Declarar variables
+declare
+	p_tiene_participantes bool;
+	p_tiene_registro bool;
+begin
+	--primero verificar si tiene participantes activos el test
+	 select into p_tiene_participantes case when COunt(*)>0 then true else false end from participantes_test pt 
+ 	where pt.id_test =old.id_test and estado ;
+	--Verificar si tiene registro de errores de tipo pariticpantes en la tabla errores_test
+ 	select into p_tiene_registro case when COUNT(*)>0 then true else false 
+	end from errores_test et where et.id_test =old.id_test and et.error_detalle ='El test no contiene participantes';
+			
+ 	--si tiene participantes con estado true entonces actualizar el registro de errores_test y poner 
+ 	--false el error contiene participantes
+	if p_tiene_participantes then 
+		   update errores_test set estado = false where id_test =old.id_test and error_detalle='El test no contiene participantes';
+	else 
+			--si no tiene participantes verificar si ya existe el registro para crear o modificarlo 
+			if p_tiene_registro then 
+					--como si tiene registro y el numero de participantes es 0 entonces colocar el estado en false
+					 update errores_test set estado = true where id_test =old.id_test and error_detalle='El test no contiene participantes';
+			else 
+					--como no existe registro entonces crearlo 
+			insert into errores_test(id_test,error_detalle)values(old.id_test,'El test no contiene participantes');
+			end if;
+	end if;
+   
+return new;
+end
+$$
+language 'plpgsql';
+
+create trigger TR_Test_Participantes_after_delete
+after delete 
+on participantes_test
+for each row 
+execute procedure FU_TR_test_participantes_delete();
+
+select * from participantes_test
+
+select * from errores_test et ;
+
+delete from participantes_test ;
+
+update errores_test set estado = true
+
+--crear un trigger cuando se crea un test 
+--para insertar dos registros 
+
+-- DROP FUNCTION public.fu_tr_test_validar_fechas();
+select * from test t  et ;
+--trigger after 
+CREATE OR REPLACE FUNCTION public.fu_tr_test_insert_error()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin 
+	insert into errores_test(id_test,error_detalle)values(new.id_test,'El test no contiene secciones');
+   insert into errores_test(id_test,error_detalle)values(new.id_test,'El test no contiene participantes');
+return new;
+end
+$function$
+;
+
+create trigger tr_test_validar_fechas_insert_error  
+after insert 
+on test
+for each row 
+execute procedure fu_tr_test_insert_error();
+
+
+
+
+
+
+delete from errores_test ;
+delete from participantes_test ;
+delete from test ;
+
+select * from preguntas p  
+
+
+
+--funcion para listar las secciones que tenga niveles y que los niveles contengan preguntas xd
+
+select * from fu_secciones_disponibles_test();
+
+create or replace function fu_secciones_disponibles_test()
+returns table
+(
+	r_id_seccion int, r_titulo varchar(500), r_num_niveles int
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select s.id_seccion, s.titulo, cast ((select COUNT(*) from 
+								(select n.id_nivel, n.id_seccion, n.nivel  from niveles n 
+								inner join preguntas p on n.id_nivel = p.id_nivel
+									inner join respuestas r on p.id_pregunta=r.id_pregunta
+								where n.estado 	and n.estado and p.estado and p.error = false and r.estado
+								and n.id_seccion=s.id_seccion
+								group by n.id_nivel, n.id_seccion, n.nivel ) as x
+								)as int) as num_niveles from secciones s
+	inner join niveles n on n.id_seccion=s.id_seccion	
+	inner join preguntas p on n.id_nivel = p.id_nivel
+	inner join respuestas r on p.id_pregunta=r.id_pregunta
+	where s.estado and n.estado and p.estado and p.error = false and r.estado
+	group by s.id_seccion, s.titulo; 
+end;
+$BODY$	
+
+
+
+
+
+
+
+							
