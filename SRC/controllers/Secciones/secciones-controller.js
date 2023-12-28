@@ -29,8 +29,20 @@ const crear_seccion_usuario = async (req, res, next) => {
     }
 }
 
+//listar las secciones disponibles para ser seleccionadas a un test 
+const secciones_disponibles_test = async (req, res, next) => {
+    try {
+        const result = await pool.query('select * from fu_secciones_disponibles_test()');
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
+
+
 
 module.exports = {
     secciones_usuario,
-    crear_seccion_usuario
+    crear_seccion_usuario,
+    secciones_disponibles_test
 };
