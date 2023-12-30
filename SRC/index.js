@@ -16,6 +16,7 @@ const nivelesRoutes = require('./routes/niveles-routes.js');
 const preguntasRoutes = require('./routes/preguntas-routes.js');
 const participantesRoutes = require('./routes/participantes-routes.js');
 const testRoutes = require('./routes/test-routes.js');
+const googleRoutes = require("./routes/auth-routes.js");
 
 //config entorno
 dotenv.config();
@@ -26,7 +27,8 @@ const app = express();
 
 const PORT = 4099;
 
-const corsOptions = { credentials: true, origin: "http://26.158.133.96:3000" };
+const corsOptions = { credentials: true, origin: "http://localhost:3000" };
+//const corsOptions = { credentials: true, origin: "http://26.101.205.106:3000" };
 
 //config del server
 app.use(cors(corsOptions));
@@ -39,6 +41,7 @@ app.use(cookieParser());
 //Rutas publicas sin token
 //inicio de sesion
 app.use('/auth', authRoutes);
+app.use('/authgoogle', googleRoutes);
 
 //rutas protegidas con token
 //ruta para los usuarios
