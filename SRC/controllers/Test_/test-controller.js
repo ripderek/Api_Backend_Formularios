@@ -86,6 +86,18 @@ const lista_participantes_busqueda = async (req, res, next) => {
     }
 }
 
+//funcion para devolver los datos de un formulario por el token enviando de la URL por parametro 
+//
+const datos_formulario_token = async (req, res, next) => {
+    try {
+        const { token } = req.params;
+        const result = await pool.query('select * from form_data($1)', [token]);
+        console.log(result.rows);
+        return res.status(200).json(result.rows[0]);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
 
 module.exports = {
     crear_test,
@@ -94,5 +106,6 @@ module.exports = {
     test_detalle_id,
     participantes_test,
     lista_participantes,
-    lista_participantes_busqueda
+    lista_participantes_busqueda,
+    datos_formulario_token
 };
