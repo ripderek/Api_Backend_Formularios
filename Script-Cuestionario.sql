@@ -245,6 +245,7 @@ begin
 END;
 $$;
 
+select * from Now()
 --crear la tabla transaccional 
 CREATE TABLE secciones_usuario (
     ID_Seccion INT,
@@ -1684,9 +1685,186 @@ end;
 $BODY$	
 
 
+--crear una funcion que retorne datos sobre un formulario que se quiere acceder desde la app
+--consulta mediante token de la URL 
+/*
+  IF NEW.fecha_hora_cierre <= NEW.fecha_hora_inicio THEN
+    RAISE EXCEPTION 'La Fecha de cierre no puede ser menor o igual a Fecha de inicio del test';
+  END IF;
+
+ **/
+select * from test t where cast(t.tokens as character varying) = '2bd38956-fbd7-4f8f-b5a2-57c8fae393ae'; 
+
+
+select * from form_data('2bd38956-fbd7-4f8f-b5a2-57c8fae393ae');
+--Pasar saber si esta caducado 
+
+--retornar la tabla con los datos xd 
+--drop FUNCTION form_data(p_token character varying)
+
+--verificar tambien si la fecha y hora es correcta para poder entrar al formulario 
+CREATE OR REPLACE FUNCTION form_data(p_token character varying)
+ RETURNS TABLE( 
+ 	r_disponibilidad bool,
+ 	r_caducado bool,
+ 	r_poximo bool,
+ 	r_titulo character varying,
+ 	r_fecha_hora_inico character varying,
+ 	r_fecha_cierre character varying,
+ 	r_estado bool,
+ 	r_suspendio bool,
+ 	r_descripcion character varying,
+ 	r_ingresos_permitidos int,
+ 	r_token character varying,
+ 	r_estado_error bool
+ )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select case when 
+	Now()>=t.fecha_hora_inicio and Now()<= t.fecha_hora_cierre then true else false end as Verificacion_Disponibilidad,
+	case when Now()>t.fecha_hora_cierre then true else false end as Caducado,
+	case when Now()<t.fecha_hora_inicio then true else false end as Proximo,
+	t.titulo, 
+	cast(to_char(t.fecha_hora_inicio,'DD-MON-YYYY')as varchar(500)) as fecha_hora_inicio,
+	cast(to_char(t.fecha_hora_cierre,'DD-MON-YYYY')as varchar(500)) as fecha_cierre, 
+	t.estado,
+	t.suspendio,
+	t.descripcion,
+	t.ingresos_permitidos,
+	cast(t.tokens as character varying),
+	case when estado_detalle='Verificado' then true else false end as Estado_Error
+	from test t where cast(t.tokens as character varying) = p_token; 
+end;
+$function$
+;
+
+select * from participantes p;
+
+--eliminar los campos de participantes 
+--tipo_identificacion
+--identificacion
+--numero_celular
+ ALTER TABLE participantes
+DROP constraint ch_tipo_identifi;
+
+
+--eliminar el trigger de insertar 
+CREATE OR REPLACE FUNCTION public.fu_tr_insert_participantes()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+	if trim(new.nombres_apellidos)='' then
+            raise exception 'Nombres no puede ser vacio';
+    end if;
+     if trim(new.correo_institucional)='' then
+            raise exception 'Correo institucional no puede ser vacio';
+    end if;
+   /*
+    if new.identificacion  ~ '[^0-9]' then 
+        raise exception 'Identificacion solo puede contener numeros';
+    end if;
+    if new.numero_celular  ~ '[^0-9]' then 
+        raise exception 'Celular solo puede contener numeros';
+    end if;
+    if length(new.numero_celular) <> 10 then
+        raise exception 'Celular debe tener 10 digitos';
+    end if; 
+    	if trim(new.tipo_identificacion)='' then
+            raise exception 'Tipo de identificación no puede ser vacio';
+    end if;
+    --validar el tamano de la identificacion dependiendo del tipo
+    if(new.tipo_identificacion='Cedula')then
+        if length(new.identificacion)<>10 then
+                    raise exception 'Cedula requiere 10 digitos';
+        end if;
+    end if;
+    if(new.tipo_identificacion='Ruc')then
+        if length(new.identificacion)<>13 then
+                    raise exception 'Ruc requiere 13 digitos';
+        end if;
+    end if;
+    if(new.tipo_identificacion='Pasaporte')then
+        if length(new.identificacion)<>12 then
+                    raise exception 'Pasaporte requiere 12 digitos';
+        end if;
+    end if;
+    */
+return new;
+end
+$function$
+;
+
+
+select * from participantes p;
+--drop PROCEDURE public.sp_registrar_participantes(IN p_correo_institucional character varying, IN p_nombres_apellidos character varying, IN p_tipo_identificacion character varying, IN p_identificacion character varying, IN p_celular character varying)
+--eliminar los campos que ya no existen y que se ingresan 
+
+call sp_registrar_participantes();
+--drop procedure sp_registrar_participantes(IN p_correo_institucional character varying, 
+					IN p_nombres_apellidos character varying)
+					
+CREATE OR REPLACE PROCEDURE public.sp_registrar_participantes(IN p_correo_institucional character varying, 
+					IN p_nombres_apellidos character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+
+Begin
+	insert into participantes(
+						correo_institucional,
+						nombres_apellidos
+						)values
+						(
+						 p_correo_institucional,
+						 p_nombres_apellidos
+						);
+EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+--funcion para buscar un usuario mediante el correo electronico 
+select * from participantes p where p.correo_institucional ='rcoelloc2@uteq.edu.ec'
 
 
 
 
+select *from auth_data_participantes('rcoelloc2@uteq.eec');
+--true 
+CREATE OR REPLACE FUNCTION public.auth_data_participantes(email character varying)
+ RETURNS TABLE(r_verificado bool)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select case when COUNT(*)>0 then true else false end from participantes p where p.correo_institucional =email;
+end;
+$function$
+;
+select * from test t 
 
+select * from id_participante_emil('rcoelloc2@uteq.edu.ec');
+
+--funcion para retornar el id del participante segun el correo 
+CREATE OR REPLACE FUNCTION public.id_participante_emil(email character varying)
+ RETURNS TABLE(r_id_participante character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select cast(p.id_participante as character varying) from participantes p where p.correo_institucional =email;
+end;
+$function$
+;
+
+select * from participantes p 
+
+delete from participantes where correo_institucional = 'rcoelloc2@uteq.edu.ec'
 							
