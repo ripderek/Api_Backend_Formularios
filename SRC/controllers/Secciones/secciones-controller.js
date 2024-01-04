@@ -39,10 +39,21 @@ const secciones_disponibles_test = async (req, res, next) => {
     }
 }
 
+//listar el numero de preguntas por niveles que posee una seccion 
+const preguntas_niveles_seccion_id = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('select * from FU_numeros_preguntas_validad_seccion($1)', [id]);
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
 
 
 module.exports = {
     secciones_usuario,
     crear_seccion_usuario,
-    secciones_disponibles_test
+    secciones_disponibles_test,
+    preguntas_niveles_seccion_id
 };
