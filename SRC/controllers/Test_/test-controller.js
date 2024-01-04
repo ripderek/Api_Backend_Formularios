@@ -98,6 +98,92 @@ const datos_formulario_token = async (req, res, next) => {
         return res.status(404).json({ message: error.message });
     }
 }
+//crear una funcion para registrar al participante en el test 
+//ingresar_participante_test
+const ingreso_participante_test = async (req, res, next) => {
+    try {
+        const { p_token_id_participante, p_token_id_test, p_facultad, p_carrera, p_semestre } = req.body;
+        console.log(p_token_id_participante + "-" + p_token_id_test + "-" + p_facultad + "-" + p_carrera + "-" + p_semestre);
+
+        //dentro de la base de datos crear un cursor que ingrese todas las secciones que va a realizar un participante
+        const result = await pool.query('call ingresar_participante_test($1,$2,$3,$4,$5)',
+            [p_token_id_participante, p_token_id_test, p_facultad, p_carrera, p_semestre]);
+
+
+        return res.status(200).json({ message: "Se ha registro en el test" });
+        //return res.status(200).json(result.rows);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ error: error.message });
+    }
+}
+//verificar si el usuario ya se encuentra registrado en el test 
+const verificacion_ingreso_participante = async (req, res, next) => {
+    try {
+        const { token_participante, token_test } = req.params;
+        const result = await pool.query('select * from verificacion_participante_test($1,$2)', [token_participante, token_test]);
+        return res.status(200).json(result.rows[0]);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
+
+//funcion para retornar todas las secciones que contiene un test
+const secciones_test = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('select * from secciones_test_id($1)', [id]);
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
+
+//funcion para una seccion con un test 
+const agregar_seccion_test = async (req, res, next) => {
+    try {
+        const { p_id_test, p_id_seccion, p_numero_preguntas } = req.body;
+
+
+        const result = await pool.query('call SP_Ingresar_seccion_test($1,$2,$3)',
+            [p_id_test, p_id_seccion, p_numero_preguntas]);
+
+
+        return res.status(200).json({ message: "Se ha agregado la seccion al test" });
+        //return res.status(200).json(result.rows);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ error: error.message });
+    }
+}
+//funcion que devuelve el progreso 
+const progreso_secciones_participante = async (req, res, next) => {
+    try {
+        const { p_id_toke_particiapnta, p_id_token_test } = req.params;
+        // console.log("error aqui");
+        // console.log(p_id_toke_particiapnta + "-" + p_id_token_test);
+        //p_id_toke_particiapnta/:p_id_token_test
+        const result = await pool.query('select * from FU_progreso_secciones_tokens($1,$2)', [p_id_toke_particiapnta, p_id_token_test]);
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
+//funcion que retorne los datos del test mediandte token id 
+const datos_token_id_test = async (req, res, next) => {
+    try {
+        const { p_id_token_test } = req.params;
+        // console.log("error aqui");
+        // console.log(p_id_toke_particiapnta + "-" + p_id_token_test);
+        //p_id_toke_particiapnta/:p_id_token_test
+        const result = await pool.query('select * from FU_datos_test_token_id($1)', [p_id_token_test]);
+        return res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
 
 module.exports = {
     crear_test,
@@ -107,5 +193,11 @@ module.exports = {
     participantes_test,
     lista_participantes,
     lista_participantes_busqueda,
-    datos_formulario_token
+    datos_formulario_token,
+    ingreso_participante_test,
+    verificacion_ingreso_participante,
+    secciones_test,
+    agregar_seccion_test,
+    progreso_secciones_participante,
+    datos_token_id_test
 };
