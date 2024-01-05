@@ -185,6 +185,49 @@ const datos_token_id_test = async (req, res, next) => {
     }
 }
 
+//funcion para obtener el progreso de una seccion para poder obtener el id de la pregunta siguiente
+const progreso_seccion_siguiente_pregunta = async (req, res, next) => {
+    try {
+        const { p_id_user, p_id_token_test, id_seccion } = req.params;
+        // console.log("error aqui");
+        // console.log(p_id_toke_particiapnta + "-" + p_id_token_test);
+        //p_id_toke_particiapnta/:p_id_token_test
+        const result = await pool.query('select * from fu_lista_preguntas_faltan_resolver($1,$2,$3)', [p_id_user, p_id_token_test, id_seccion]);
+        return res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
+//funcion para saber si hay mas preguntas por revolser 
+const mas_preguntas = async (req, res, next) => {
+    try {
+        const { p_id_user, p_id_token_test, id_seccion } = req.params;
+        // console.log("error aqui");
+        // console.log(p_id_toke_particiapnta + "-" + p_id_token_test);
+        //p_id_toke_particiapnta/:p_id_token_test
+        const result = await pool.query('select * from fu_verificar_hay_mas_preguntas($1,$2,$3)', [p_id_user, p_id_token_test, id_seccion]);
+        return res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
+
+//funcion para registrar una respuesta unica 
+const registrar_respuesta_unica = async (req, res, next) => {
+    try {
+        const { p_id_progreso_pregunta, p_respuesta, p_tiempo_respuesta } = req.body;
+        const result = await pool.query('call SP_REGISTRAR_RESPUESTA_UNICA($1,$2,$3)',
+            [p_id_progreso_pregunta, p_respuesta, p_tiempo_respuesta]);
+        return res.status(200).json({ message: "Se creó el test" });
+        //return res.status(200).json(result.rows);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ error: error.message });
+    }
+}
+
 module.exports = {
     crear_test,
     test_usuario,
@@ -199,5 +242,8 @@ module.exports = {
     secciones_test,
     agregar_seccion_test,
     progreso_secciones_participante,
-    datos_token_id_test
+    datos_token_id_test,
+    progreso_seccion_siguiente_pregunta,
+    registrar_respuesta_unica,
+    mas_preguntas
 };

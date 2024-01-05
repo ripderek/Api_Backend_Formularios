@@ -2733,13 +2733,314 @@ select * from extra_pregunta ep ;
 
 
 
-
-
 select * from secciones s 
 where s.id_seccion =27
 
 
 
+select * from respuestas r ;
+
+select * from progreso_preguntas pp ;
 
 
+create table progreso_respuestas(
+	id_progreso_respuestas INT GENERATED ALWAYS AS IDENTITY,
+	id_progreso_pregunta INT not null,
+	respuesta character varying not null  default 'NA',
+	tiempo_respuesta int not null default 0,
+	Primary Key(id_progreso_respuestas)
+);
+
+alter table progreso_respuestas 
+add constraint FK_ID_Progreso_pregunt
+FOREIGN KEY (id_progreso_pregunta) 
+references progreso_preguntas(id_progreso_preguntas);
+
+
+
+
+
+select * from  progreso_preguntas pp  ;
+
+select  pp.id_progreso_preguntas , pp.id_pregunta ,n.nivel , tp.codigo 
+from participantes_test pt 
+inner join test t on pt.id_test =t.id_test 
+inner join progreso_secciones ps on pt.id_participante_test =ps.id_participante_test 
+inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion
+inner join preguntas p on pp.id_pregunta = p.id_pregunta 
+inner join niveles n on p.id_nivel =n.id_nivel 
+inner join tipos_preguntas tp on p.tipo_pregunta =tp.id_tipo_pregunta 
+--left join 
+where cast(pt.id_participante as character varying)= '794f8b91-aef1-4d9b-94ef-520ff61e8f2b' and t.tokens ='df930033-4dde-4fe7-840e-b9362810dc0f'
+and ps.id_seccion =27 --el id seccion tambien es parametro
+order by n.nivel asc;
+
+
+
+select * from preguntas p 
+
+--modificar la funcion de ver las repuestas de MEMZAR para que salga la opcion 
+CREATE OR REPLACE FUNCTION public.fu_repuestas_memrzar(p_id_pregunta integer)
+ RETURNS TABLE(r_id_repuesta integer, r_opcion character varying, r_correcta boolean, r_estado boolean, r_eliminado boolean)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select r.id_respuesta, r.opcion, r.correcta, r.estado, r.eliminado from respuestas r where id_pregunta = p_id_pregunta;
+	end;
+$function$
+;
+
+
+select * from tipos_preguntas tp ;
+
+select * from preguntas p ;
+
+delete from preguntas where tipo_pregunta in (3);
+
+call SP_Crear_Pregunta_SELCIMG('Robalino',20,3,8);
+--PROCEDIMIENTO PARA CREAR UNA PREGUNTA DE TIPO SELCIMG
+CREATE OR REPLACE PROCEDURE SP_Crear_Pregunta_SELCIMG(
+		p_enunciado character varying,
+		p_tiempos_segundos int,
+		p_tipo_pregunta int,
+		p_id_nivel int
+		)
+LANGUAGE plpgsql
+AS $procedure$
+Begin
+	insert into preguntas(
+						enunciado,
+						tiempos_segundos,
+						tipo_pregunta,
+						id_nivel,
+						error_detalle
+						)values
+						(
+						 p_enunciado,
+						 p_tiempos_segundos,
+						 p_tipo_pregunta,
+						 p_id_nivel,
+						 'No existen opciones de respuestas para la pregunta'
+						);
+
+--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+drop function  public.fu_datos_pregunta_selcimg(p_id_nivel integer)
+
+
+CREATE OR REPLACE FUNCTION public.fu_datos_pregunta_selcimg(p_id_nivel integer)
+ RETURNS TABLE(r_id_pregunta integer, r_enunciado character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select p.id_pregunta, p.enunciado  from preguntas p  
+		inner join tipos_preguntas tp on p.tipo_pregunta = tp.id_tipo_pregunta
+		where p.id_nivel =p_id_nivel and tp.codigo ='SELCIMG' order by p.fecha_creacion desc limit 1 ;
+	end;
+$function$
+;
+
+
+drop FUNCTION public.fu_datos_pregunta_selcimg_id_pregunta(p_id_pregunta integer)
+
+CREATE OR REPLACE FUNCTION public.fu_datos_pregunta_selcimg_id_pregunta(p_id_pregunta integer)
+ RETURNS TABLE(r_id_pregunta integer, r_enunciado character varying, r_tiempo_segundo int)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select p.id_pregunta, p.enunciado, p.tiempos_segundos  from preguntas p  
+		inner join tipos_preguntas tp on p.tipo_pregunta = tp.id_tipo_pregunta
+		where p.id_pregunta =p_id_pregunta and tp.codigo ='SELCIMG' order by p.fecha_creacion desc limit 1;
+	end;
+$function$
+;
+
+select * from preguntas p ;
+select * from tipos_preguntas tp 
+
+
+-- DROP FUNCTION public.fu_preguntas_nivel1(varchar);
+
+CREATE OR REPLACE FUNCTION public.fu_preguntas_nivel1(p_id_nivel character varying)
+ RETURNS TABLE(r_enunciado character varying, r_fecha character varying, r_tiempo_segundos integer, r_estado boolean, r_id_pregunta character varying, r_id_p integer, r_error boolean, r_error_detalle character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select cast(LEFT(p.enunciado, 80) || '...' as varchar(900) ) as enunciad, cast(to_char(p.fecha_creacion,'DD-MON-YYYY')as varchar(500)) as fecha_crea,
+	p.tiempos_segundos, p.estado, tp.codigo, p.id_pregunta, p.error, p.error_detalle
+	from preguntas p 
+	inner join  tipos_preguntas tp on p.tipo_pregunta= tp.id_tipo_pregunta
+	where p.id_nivel = cast(p_id_nivel as int) order by p.fecha_creacion asc;
+end;
+$function$
+;
+
+select * from progreso_secciones ps ;
+
+select * from progreso_preguntas pp where pp.id_progreso_seccion =3; --27
+select * from progreso_preguntas pp where pp.id_progreso_seccion =4; --44
+
+
+select * from preguntas p where p.id_pregunta =29;
+
+select  COUNT(*)
+from  fu_lista_preguntas_faltan_resolver(
+		'794f8b91-aef1-4d9b-94ef-520ff61e8f2b',
+		'88611a91-a80c-434d-9401-ada38ee822b8',27);
+
+select COUNT(*)
+from  fu_lista_preguntas_faltan_resolver(
+		'794f8b91-aef1-4d9b-94ef-520ff61e8f2b',
+		'88611a91-a80c-434d-9401-ada38ee822b8',44);
+
+select * from fu_verificar_hay_mas_preguntas(
+'794f8b91-aef1-4d9b-94ef-520ff61e8f2b',
+		'88611a91-a80c-434d-9401-ada38ee822b8',44);
+	
+	
+select * from secciones s where s.id_seccion =27;
+select * from secciones s where s.id_seccion =44;
+
+select p.enunciado ,n.nivel  from preguntas p inner join niveles n on p.id_nivel=n.id_nivel 
+where p.id_pregunta in (29,51)
+
+
+select p.enunciado ,n.nivel  from preguntas p inner join niveles n on p.id_nivel=n.id_nivel 
+where p.id_pregunta in (35,32,33,58,57)
+
+
+
+--funcion para ver el progreso de un usuario en test 
+
+		,44);
+
+--funcion para monitorear el progreso de un participante segun las pruebas 
+	
+--PRUEBAS 
+select * from fu_monitoreo_progreso('794f8b91-aef1-4d9b-94ef-520ff61e8f2b','88611a91-a80c-434d-9401-ada38ee822b8',true,1);
+
+
+call SP_REGISTRAR_RESPUESTA_UNICA(4,'si',4);
+call SP_REGISTRAR_RESPUESTA_UNICA(5,'si',4);
+
+
+delete from progreso_respuestas;
+update extra_pregunta set tiempo_enunciado =7 where id_pregunta =29
+select
+
+
+--funcion para saber si existen mas preguntas por resolver xd 
+CREATE OR REPLACE FUNCTION public.fu_verificar_hay_mas_preguntas(p_token_participante character varying,
+													p_token_test character varying,
+													p_id_seccion int)
+ RETURNS TABLE(
+ 	r_verification bool
+ )
+ LANGUAGE plpgsql
+AS $function$
+begin
+		return query
+select  case when COUNT(*)<=0 then false else true end
+from  fu_lista_preguntas_faltan_resolver(
+		'794f8b91-aef1-4d9b-94ef-520ff61e8f2b',
+		'88611a91-a80c-434d-9401-ada38ee822b8',27);
+end;
+$function$
+;
+
+/*
+ drop function fu_monitoreo_progreso(p_token_participante character varying,
+													p_token_test character varying,
+													p_todo bool,
+													p_id_seccion int)
+ * */
+CREATE OR REPLACE FUNCTION public.fu_monitoreo_progreso(p_token_participante character varying,
+													p_token_test character varying,
+													p_todo bool,
+													p_id_seccion int)
+ RETURNS TABLE(
+ r_seccion character varying,
+ r_enunciado character varying, 
+r_nivel_pregunta int,
+r_respuesta character varying,
+r_id_progreso_pregunta int,
+r_tiempo_respuesta int
+ )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	if p_todo then 
+		return query
+			select s.titulo ,p.enunciado ,n.nivel ,CASE WHEN pr.respuesta IS NULL THEN 'NA' ELSE pr.respuesta end, 
+			pp.id_progreso_preguntas,pr.tiempo_respuesta
+	from progreso_preguntas pp 
+	full join progreso_respuestas pr 
+	on pp.id_progreso_preguntas =pr.id_progreso_pregunta
+	inner join progreso_secciones ps on pp.id_progreso_seccion =ps.id_progreso_seccion 
+	inner join participantes_test pt on ps.id_participante_test =pt.id_participante_test 
+	inner join test t on pt.id_test =t.id_test 
+	inner join preguntas p on pp.id_pregunta = p.id_pregunta
+	inner join niveles n on p.id_nivel = n.id_nivel 
+	inner join secciones s on ps.id_seccion =s.id_seccion 
+	where cast(pt.id_participante as character varying) =p_token_participante 
+	and cast(t.tokens as character varying)  =p_token_test
+	order by s.titulo,n.nivel  asc ;
+	else 
+			return query
+		select s.titulo ,p.enunciado ,n.nivel ,CASE WHEN pr.respuesta IS NULL THEN 'NA' ELSE pr.respuesta end,
+		pp.id_progreso_preguntas,pr.tiempo_respuesta
+	from progreso_preguntas pp 
+	full join progreso_respuestas pr 
+	on pp.id_progreso_preguntas =pr.id_progreso_pregunta
+	inner join progreso_secciones ps on pp.id_progreso_seccion =ps.id_progreso_seccion 
+	inner join participantes_test pt on ps.id_participante_test =pt.id_participante_test 
+	inner join test t on pt.id_test =t.id_test 
+	inner join preguntas p on pp.id_pregunta = p.id_pregunta
+	inner join niveles n on p.id_nivel = n.id_nivel 
+	inner join secciones s on ps.id_seccion =s.id_seccion 
+	where cast(pt.id_participante as character varying) =p_token_participante 
+	and cast(t.tokens as character varying)  =p_token_test and s.id_seccion=p_id_seccion
+	order by s.titulo,n.nivel  asc ;
+	end if;
+
+end;
+$function$
+;
+
+
+--procedimiento para responder a una pregunta 
+select * from progreso_respuestas pr ;
+
+Create or Replace Procedure SP_REGISTRAR_RESPUESTA_UNICA(
+										p_id_progreso_pregunta int,
+										p_respuesta character varying,
+										p_tiempo_respuesta int
+										  )
+Language 'plpgsql'
+AS $$
+begin
+	insert into progreso_respuestas(id_progreso_pregunta,respuesta,tiempo_respuesta)values(
+	p_id_progreso_pregunta,	p_respuesta,p_tiempo_respuesta
+	);
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+--hacer el trigger de insertar respuesta after para poder saber si una seccion esta completa =true o incompleta = false 
 

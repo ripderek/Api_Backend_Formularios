@@ -89,6 +89,32 @@ const crear_pregunta = async (req, res, next) => {
         return res.status(404).json({ message: error.message });
     }
 }
+//funcion para crear una pregunta de tipo SELCIMG
+const crear_pregunta_SELCIMG = async (req, res, next) => {
+    try {
+        //crear el user en la BD
+        const { p_enunciado, p_tiempos_segundos, p_tipo_pregunta, p_id_nivel } = req.body;
+
+
+        if (p_tiempos_segundos <= 0)
+            return res.status(404).json({ message: "El tiempo en de respuesta no puede ser menor o igual a 0 segundos" });
+
+
+        const users = await pool.query('Call SP_Crear_Pregunta_SELCIMG($1,$2,$3,$4)', [p_enunciado, p_tiempos_segundos, p_tipo_pregunta, p_id_nivel]);
+        console.log(users);
+
+        //Llamar a la funcion que enviar el correo
+        //enviarMail(nombres, identificacion, correo2);
+
+        return res.status(200).json({ message: "Se creo la pregunta" });
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
+
+
+
 //funcion para crear respuesta de MEMRZAR 
 let ipFileServerRES = "../../uploads/respuestas/";
 
@@ -125,6 +151,26 @@ const MEMRZAR_dato_pregunta_id_pregunta = async (req, res, next) => {
     try {
         const { id } = req.params;
         const result = await pool.query('select * from FU_datos_pregunta_MEMRZAR_id_pregunta($1)', [id]);
+        return res.status(200).json(result.rows[0]);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
+//funcion que devuelve los datos de una pregunta de tipo SELCIMG
+const SELCIMG_dato_pregunta = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('select * from fu_datos_pregunta_selcimg($1)', [id]);
+        return res.status(200).json(result.rows[0]);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
+//funcion que devuelve los datos de una pregunta de tipo MEMRZAR segun el id de la pregunta
+const SELCIMG_dato_pregunta_id_pregunta = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('select * from fu_datos_pregunta_selcimg_id_pregunta($1)', [id]);
         return res.status(200).json(result.rows[0]);
     } catch (error) {
         return res.status(404).json({ message: error.message });
@@ -180,5 +226,8 @@ module.exports = {
     MEMRZAR_dato_pregunta_id_pregunta,
     opciones_respuestas_MEMRZAR,
     ver_img_respuesta_MEMRZAR,
-    crear_respuesta_MEMRZAR
+    crear_respuesta_MEMRZAR,
+    crear_pregunta_SELCIMG,
+    SELCIMG_dato_pregunta,
+    SELCIMG_dato_pregunta_id_pregunta
 };
