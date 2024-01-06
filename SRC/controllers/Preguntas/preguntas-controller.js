@@ -136,6 +136,20 @@ const crear_respuesta_MEMRZAR = async (req, res, next) => {
         return res.status(404).json({ message: error.message });
     }
 }
+const crear_respuesta_text = async (req, res, next) => {
+    try {
+
+        //file de la foto
+        const { respuesta, id_pregunta, p_correcta } = req.body;
+
+        const users = await pool.query('Call SP_anadir_respuesta_MEMRZAR($1,$2,$3)', [id_pregunta, respuesta, p_correcta]);
+
+        return res.status(200).json({ message: "Se creo la respuesta" });
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
 //funcion que devuelve los datos de una pregunta de tipo MEMRZAR
 const MEMRZAR_dato_pregunta = async (req, res, next) => {
     try {
@@ -229,5 +243,6 @@ module.exports = {
     crear_respuesta_MEMRZAR,
     crear_pregunta_SELCIMG,
     SELCIMG_dato_pregunta,
-    SELCIMG_dato_pregunta_id_pregunta
+    SELCIMG_dato_pregunta_id_pregunta,
+    crear_respuesta_text
 };

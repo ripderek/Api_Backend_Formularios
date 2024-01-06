@@ -2929,7 +2929,11 @@ where p.id_pregunta in (35,32,33,58,57)
 --funcion para monitorear el progreso de un participante segun las pruebas 
 	
 --PRUEBAS 
-select * from fu_monitoreo_progreso('794f8b91-aef1-4d9b-94ef-520ff61e8f2b','88611a91-a80c-434d-9401-ada38ee822b8',true,1);
+	delete from progreso_respuestas
+select * from fu_monitoreo_progreso('794f8b91-aef1-4d9b-94ef-520ff61e8f2b','8279be02-af2c-4926-a8c9-1e9ade357b34',true,1);
+
+
+
 
 
 call SP_REGISTRAR_RESPUESTA_UNICA(4,'si',4);
@@ -3042,5 +3046,299 @@ begin
 END;
 $$;
 
+
+select * from progreso_secciones ps ;
+
+select * from progreso_respuestas pr ;
+--PRUEBAS 
+select * from fu_monitoreo_progreso('794f8b91-aef1-4d9b-94ef-520ff61e8f2b','88611a91-a80c-434d-9401-ada38ee822b8',true,1);
+
 --hacer el trigger de insertar respuesta after para poder saber si una seccion esta completa =true o incompleta = false 
+--en la tabla de respuestas progreso 
+select * from progreso_respuestas pr ;
+
+--3 ejemplo
+
+--tengo que contar las preguntas segun el id seccion
+--y comprar con las registros de respuestas progreso segun el id de la seccion 
+
+--primero obtener el id seccion que es unico para cada participante_test 
+--new.id_progreso_pregunta =5 -->ejemplo
+select pp.id_progreso_seccion  from progreso_preguntas pp where pp.id_progreso_preguntas=5;
+-->3 id seccion 
+--a este hacerle el seelect into 
+select case when COUNT(*)=(select COUNT(*) from progreso_preguntas pp where pp.id_progreso_seccion =3) then true else false end 
+as Completado
+from progreso_respuestas pr inner join progreso_preguntas pp on pr.id_progreso_pregunta = pp.id_progreso_preguntas 
+where pp.id_progreso_seccion =3;
+
+--delete from progreso_respuestas ;
+select * from progreso_secciones ps;
+
+create or replace function FU_TR_reponder_progreso_respuestas() returns trigger 
+as 
+$$
+---Declarar variables
+declare
+	p_id_progreso_seccion int;
+	p_completo bool;
+	p_porcentaje int;
+begin
+	--primero obtener el id seccion que es unico para cada participante_test 
+	--new.id_progreso_pregunta =5 -->ejemplo
+	select into p_id_progreso_seccion pp.id_progreso_seccion  from progreso_preguntas pp where pp.id_progreso_preguntas=new.id_progreso_pregunta;
+	--hacer la comparacion para obtener el booleano 
+	select into p_completo case when COUNT(*)=(select COUNT(*) from progreso_preguntas pp where pp.id_progreso_seccion =p_id_progreso_seccion) then true else false end 
+	as Completado
+	from progreso_respuestas pr inner join progreso_preguntas pp on pr.id_progreso_pregunta = pp.id_progreso_preguntas 
+	where pp.id_progreso_seccion =p_id_progreso_seccion;
+	
+	--obtener el porcentaje 
+	select into p_porcentaje
+  	(COUNT(pr.id_progreso_pregunta) * 100) / NULLIF((SELECT COUNT(*) FROM progreso_preguntas pp WHERE pp.id_progreso_seccion = p_id_progreso_seccion), 0) AS PorcentajeCompletado
+	FROM
+  	progreso_respuestas pr
+	INNER JOIN
+  	progreso_preguntas pp ON pr.id_progreso_pregunta = pp.id_progreso_preguntas
+	WHERE
+  	pp.id_progreso_seccion = p_id_progreso_seccion;
+	--actualizar el registro
+	update progreso_secciones set estado_completado=p_completo,porcentaje=p_porcentaje where id_progreso_seccion=p_id_progreso_seccion;
+
+return new;
+end
+$$
+language 'plpgsql';
+
+create trigger TR_Responder_pregunta
+after insert 
+on progreso_respuestas
+for each row 
+execute procedure FU_TR_reponder_progreso_respuestas();
+
+delete from progreso_respuestas ;
+select * from progreso_secciones ps ;
+update progreso_secciones set estado_completado  =false
+
+
+-- lo mismo pero para eliminar 
+create or replace function FU_TR_reponder_progreso_respuestas_delete() returns trigger 
+as 
+$$
+---Declarar variables
+declare
+	p_id_progreso_seccion int;
+	p_completo bool;
+	p_porcentaje int;
+begin
+	--primero obtener el id seccion que es unico para cada participante_test 
+	--new.id_progreso_pregunta =5 -->ejemplo
+	select into p_id_progreso_seccion pp.id_progreso_seccion  from progreso_preguntas pp where pp.id_progreso_preguntas=old.id_progreso_pregunta;
+	--hacer la comparacion para obtener el booleano 
+	select into p_completo case when COUNT(*)=(select COUNT(*) from progreso_preguntas pp where pp.id_progreso_seccion =p_id_progreso_seccion) then true else false end 
+	as Completado
+	from progreso_respuestas pr inner join progreso_preguntas pp on pr.id_progreso_pregunta = pp.id_progreso_preguntas 
+	where pp.id_progreso_seccion =p_id_progreso_seccion;
+	
+	--obtener el porcentaje 
+	select into p_porcentaje
+  	(COUNT(pr.id_progreso_pregunta) * 100) / NULLIF((SELECT COUNT(*) FROM progreso_preguntas pp WHERE pp.id_progreso_seccion = p_id_progreso_seccion), 0) AS PorcentajeCompletado
+	FROM
+  	progreso_respuestas pr
+	INNER JOIN
+  	progreso_preguntas pp ON pr.id_progreso_pregunta = pp.id_progreso_preguntas
+	WHERE
+  	pp.id_progreso_seccion = p_id_progreso_seccion;
+	--actualizar el registro
+	update progreso_secciones set estado_completado=p_completo,porcentaje=p_porcentaje where id_progreso_seccion=p_id_progreso_seccion;
+
+return new;
+end
+$$
+language 'plpgsql';
+
+create trigger TR_Responder_pregunta_delete
+after delete 
+on progreso_respuestas
+for each row 
+execute procedure FU_TR_reponder_progreso_respuestas_delete();
+
+
+delete from progreso_respuestas ;
+
+
+select * from progreso_respuestas;
+select * from extra_pregunta
+
+select * from preguntas p where p.enunciado ='Memorizar la imagen'
+update extra_pregunta set tiempo_enunciado = 7 where id_pregunta =34 
+--crear preguntas clasicas opcion unica 
+select * from tipos_preguntas tp ;
+--SELCCLA
+
+select * from preguntas p ;
+delete from preguntas where tipo_pregunta=4;
+
+select * from fu_datos_pregunta_selcimg(59);
+select * from fu_datos_pregunta_selcimg_id_pregunta(59);
+-- DROP FUNCTION public.fu_datos_pregunta_selcimg(int4);
+
+CREATE OR REPLACE FUNCTION public.fu_datos_pregunta_selcimg(p_id_nivel integer)
+ RETURNS TABLE(r_id_pregunta integer, r_enunciado character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select p.id_pregunta, p.enunciado  from preguntas p  
+		inner join tipos_preguntas tp on p.tipo_pregunta = tp.id_tipo_pregunta
+		where p.id_nivel =p_id_nivel /*and tp.codigo ='SELCIMG'*/ order by p.fecha_creacion desc limit 1 ;
+	end;
+$function$
+;
+
+
+CREATE OR REPLACE FUNCTION public.fu_datos_pregunta_selcimg_id_pregunta(p_id_pregunta integer)
+ RETURNS TABLE(r_id_pregunta integer, r_enunciado character varying, r_tiempo_segundo integer)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select p.id_pregunta, p.enunciado, p.tiempos_segundos  from preguntas p  
+		inner join tipos_preguntas tp on p.tipo_pregunta = tp.id_tipo_pregunta
+		where p.id_pregunta =p_id_pregunta /*and tp.codigo ='SELCIMG'*/ order by p.fecha_creacion desc limit 1;
+	end;
+$function$
+;
+
+
+
+
+
+-- DROP FUNCTION public.fu_tr_reponder_progreso_respuestas();
+
+--PRUEBAS 
+	delete from progreso_respuestas
+select * from fu_monitoreo_progreso('794f8b91-aef1-4d9b-94ef-520ff61e8f2b','76997343-d9d6-4bd6-b3c1-20b062f4a501',true,1);
+
+
+
+
+CREATE OR REPLACE FUNCTION public.fu_tr_reponder_progreso_respuestas()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	p_id_progreso_seccion int;
+	p_completo bool;
+	p_porcentaje int;
+begin
+	--primero obtener el id seccion que es unico para cada participante_test 
+	--new.id_progreso_pregunta =5 -->ejemplo
+	select into p_id_progreso_seccion pp.id_progreso_seccion  from progreso_preguntas pp where pp.id_progreso_preguntas=new.id_progreso_pregunta;
+	--hacer la comparacion para obtener el booleano 
+	select into p_completo case when COUNT(*)>=(select COUNT(*) from progreso_preguntas pp where pp.id_progreso_seccion =p_id_progreso_seccion) then true else false end 
+	as Completado
+	from progreso_respuestas pr inner join progreso_preguntas pp on pr.id_progreso_pregunta = pp.id_progreso_preguntas 
+	where pp.id_progreso_seccion =p_id_progreso_seccion;
+	
+	--obtener el porcentaje 
+	select into p_porcentaje
+  	(COUNT(pr.id_progreso_pregunta) * 100) / NULLIF((SELECT COUNT(*) FROM progreso_preguntas pp WHERE pp.id_progreso_seccion = p_id_progreso_seccion), 0) AS PorcentajeCompletado
+	FROM
+  	progreso_respuestas pr
+	INNER JOIN
+  	progreso_preguntas pp ON pr.id_progreso_pregunta = pp.id_progreso_preguntas
+	WHERE
+  	pp.id_progreso_seccion = p_id_progreso_seccion;
+	--actualizar el registro
+	update progreso_secciones set estado_completado=p_completo,porcentaje=p_porcentaje where id_progreso_seccion=p_id_progreso_seccion;
+	---verificar si la pregunta es de opcion multiple 
+	--y si existe registro no dejar ingresar 
+return new;
+end
+$function$
+;
+
+
+CREATE OR REPLACE FUNCTION public.fu_tr_reponder_progreso_respuestas_antes()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	p_id_pregunta int;
+	p_multiple bool;
+	p_existe_registro bool;
+begin
+	--obtener el id pregunta
+	--select * from progreso_respuestas
+--20
+	select into p_id_pregunta pp.id_pregunta  from progreso_preguntas pp where pp.id_progreso_preguntas =new.id_progreso_pregunta;
+--id_pregunta = 64 
+
+--con esto obtengo si es opcion multiple o no 
+	select into p_multiple tp.opcion_multiple  from preguntas p 
+	inner join tipos_preguntas tp on p.tipo_pregunta =tp.id_tipo_pregunta 
+	where p.id_pregunta =p_id_pregunta;
+
+	--si es opcion unica solo debe de existir una repuesta de ese id_progreso_pregunta
+	if p_multiple=false then
+		select into p_existe_registro case when COUNT(*)>=1 then true else false end from progreso_respuestas pr where pr.id_progreso_pregunta =new.id_progreso_pregunta;
+			if p_existe_registro=false then
+				
+			end if
+			
+	end if
+	
+
+--si no existe registro entonces se puede registrar
+	---verificar si la pregunta es de opcion multiple 
+	--y si existe registro no dejar ingresar 
+return new;
+end
+$function$
+;
+
+create trigger TR_Responder_pregunta
+before insert 
+on progreso_respuestas
+for each row 
+execute procedure FU_TR_reponder_progreso_respuestas();
+
+
+--PRUEBAS 
+	delete from progreso_respuestas
+select * from fu_monitoreo_progreso('794f8b91-aef1-4d9b-94ef-520ff61e8f2b','76997343-d9d6-4bd6-b3c1-20b062f4a501',true,1);
+
+
+--obtener el id pregunta
+--20
+select pp.id_pregunta  from progreso_preguntas pp where pp.id_progreso_preguntas =20;
+--id_pregunta = 64 
+
+--con esto obtengo si es opcion multiple o no 
+select tp.opcion_multiple  from preguntas p 
+inner join tipos_preguntas tp on p.tipo_pregunta =tp.id_tipo_pregunta 
+where p.id_pregunta =64;
+
+--si es opcion unica solo debe de existir una repuesta de ese id_progreso_pregunta
+select case when COUNT(*)>=1 then true else false end from progreso_respuestas pr where pr.id_progreso_pregunta =20;
+
+--si no existe registro entonces se puede registrar
+
+
+
+
+alter table 
+drop constraint
+
+alter table progreso_respuestas
+  add constraint UQ_Repuestas_Preguta_progreso
+  unique (numero_celular);
+ 
+ select * from progreso_respuestas pr ;
+
+
+
 
