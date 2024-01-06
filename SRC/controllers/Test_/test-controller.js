@@ -189,8 +189,8 @@ const datos_token_id_test = async (req, res, next) => {
 const progreso_seccion_siguiente_pregunta = async (req, res, next) => {
     try {
         const { p_id_user, p_id_token_test, id_seccion } = req.params;
-        // console.log("error aqui");
-        // console.log(p_id_toke_particiapnta + "-" + p_id_token_test);
+        console.log("error aqui");
+        console.log(p_id_user + "-" + p_id_token_test + "-" + id_seccion);
         //p_id_toke_particiapnta/:p_id_token_test
         const result = await pool.query('select * from fu_lista_preguntas_faltan_resolver($1,$2,$3)', [p_id_user, p_id_token_test, id_seccion]);
         return res.status(200).json(result.rows[0]);
