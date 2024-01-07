@@ -3309,7 +3309,8 @@ execute procedure FU_TR_reponder_progreso_respuestas();
 
 --PRUEBAS 
 	delete from progreso_respuestas
-select * from fu_monitoreo_progreso('794f8b91-aef1-4d9b-94ef-520ff61e8f2b','76997343-d9d6-4bd6-b3c1-20b062f4a501',true,1);
+select * from fu_monitoreo_progreso('794f8b91-aef1-4d9b-94ef-520ff61e8f2b','3da55c47-85df-4ee2-b573-a5bb7b4186af',true,1);
+
 
 
 --obtener el id pregunta
@@ -3330,15 +3331,206 @@ select case when COUNT(*)>=1 then true else false end from progreso_respuestas p
 
 
 
-alter table 
-drop constraint
+alter table progreso_respuestas
+drop constraint UQ_Repuestas_Preguta_progreso
 
 alter table progreso_respuestas
   add constraint UQ_Repuestas_Preguta_progreso
-  unique (numero_celular);
+  unique (respuesta,id_progreso_pregunta);
  
  select * from progreso_respuestas pr ;
 
+delete from progreso_respuestas ;
+
+
+select * from tipos_preguntas tp ;
+insert into tipos_preguntas(
+							titulo,
+							descripcion,
+							opcion_multiple,--
+							enunciado_img,--
+							opciones_img,--
+							tipo_pregunta_maestra,--
+							tiempo_enunciado, --
+							icono,
+							codigo
+							)
+						values(	
+						'Localizar imagen',
+						'El enunciado y las opciones se representan con imagenes',
+						false,
+						true,
+						true,
+						1,
+						false,
+						'memorizar',
+						'LOCIMG'
+						);
+
+--crear un script para resetear la base de datos
+select * from progreso_respuestas pr; 
+select * from progreso_preguntas pp ; 
+select * from progreso_secciones ps ;
+select * from datos_participante_test dpt ;
+select * from ingresos i ;
+select * from participantes p ;
+select * from participantes_test pt ;
+select * from errores_test et ;
+select * from test_niveles tn ;
+select * from test_secciones ts ;
+select * from test t ; 
+select * from respuestas r ;
+select * from extra_pregunta ep ;
+select * from preguntas p ;
+select * from niveles n ;
+select * from secciones_usuario su ;
+select * from secciones s ;
+
+call SP_Limpiar_BD();
+Create or Replace Procedure SP_Limpiar_BD()
+Language 'plpgsql'
+AS $$
+begin
+	--de momento este procedimiento no funciona debido a que se debe desahilitar cada uno de los tiggers y despues de liminar volverlos a crear 
+	--por ejemplo: 
+	--    ALTER TABLE extra_pregunta DROP CONSTRAINT IF EXISTS extra_pregunta_fk_pregunta;
+
+	--eliminar los registros de la bd
+delete from errores_test; 
+delete from progreso_respuestas ; 
+delete from progreso_preguntas  ; 
+delete from progreso_secciones  ;
+delete from datos_participante_test  ;
+delete from ingresos  ;
+delete from participantes_test  ;
+delete from participantes  ;
+delete from test_niveles  ;
+delete from test_secciones  ;
+delete from test  ; 
+delete from respuestas  ;
+delete from extra_pregunta  ;
+delete from preguntas  ;
+delete from niveles  ;
+delete from secciones_usuario  ;
+delete from secciones ;
+-- -- Habilitar nuevamente las restricciones de clave foránea
+    --ALTER TABLE extra_pregunta ADD CONSTRAINT extra_pregunta_fk_pregunta FOREIGN KEY (pregunta_id) REFERENCES preguntas(id) ON DELETE CASCADE;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+select * from tipos_preguntas tp where tp.id_tipo_pregunta = 5
+
+--arreglar el problema que no deja agregar mas repuestas despues de ingresar una como correcta xd 
+-- DROP FUNCTION public.fu_tr_anadir_respuesta();
+
+CREATE OR REPLACE FUNCTION public.fu_tr_anadir_respuesta()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	opciones_multiples_op bool;
+	contiene_correctas bool;
+	--Pref_cat varchar(5);
+begin
+	--primero consulta si la la pregunta admite opciones multiples o solo una 
+	select into opciones_multiples_op tp.opcion_multiple  from preguntas p inner join tipos_preguntas tp on p.tipo_pregunta =tp.id_tipo_pregunta 
+	where p.id_pregunta = new.id_pregunta;
+		
+	--hacer un update al registro de la pregunta colocando el bool error = falso porque ya se esta ingresando una repuesta
+
+
+	--hacer el conteo de opciones marcadas como correctas en caso de que solo admita una opcion not
+	if opciones_multiples_op = false then 
+		--consultar cuantas preguntas correctas tiene marcadas porque solo admite 1 este tipo de pregunta
+		select into contiene_correctas case when count(*) >=1 then true else false end  from respuestas r where r.id_pregunta = new.id_pregunta  and r.estado and r.correcta; 
+		--comprar si es true es porque ya tiene respuestas marcadas como correctas 
+		if contiene_correctas then 
+		---aqui preguntar si lo que se quiere ingreesar es una opcion coore 
+			if new.correcta then
+					raise exception 'Solo se admite un opcion de respuesta como correcta';
+			end if;
+		else 
+			update preguntas set error = true, error_detalle ='Esta pregunta no contiende opcion(es) correta(s)' where id_pregunta =new.id_pregunta;
+		end if;
+		--else if si no contiene correctas entonces actualizar el registro de preguntas bool error = true y detalle 'esta pregunta no contiende opcion(es) correta(s)'
+		if new.correcta then
+			update preguntas set error = false, error_detalle ='' where id_pregunta =new.id_pregunta;
+		end if;
+		--if si la opcion es marcada como correcta acualizar el registro de preguntas bool error= false 
+	end if;
+return new;
+end
+$function$
+;
+
+
+select * from respuestas r ;
+
+
+select * from preguntas p 
+
+
+delete from respuestas where id_pregunta = 84;
+delete from extra_pregunta where id_pregunta = 84;
+delete from preguntas where id_pregunta = 84
+
+
+delete from progreso_respuestas ;
+
+
+select * from progreso_respuestas;
+select * from fu_monitoreo_progreso('3a3799d6-9cd3-4fa2-8ee9-613a4b8ea488','5d3e6965-579f-4f35-a83e-d24109fd092e',true,1);
+
+select * from test_secciones ts ;
 
 
 
+
+
+select * from progreso_secciones ps ;
+select * from fu_verificar_hay_mas_preguntas('71a9a954-b7a3-4236-ab85-714ad817a526','5fc35a5a-fcc2-47da-b68e-173b841fcd29',57);
+
+
+
+CREATE OR REPLACE FUNCTION public.fu_verificar_hay_mas_preguntas(p_token_participante character varying, p_token_test character varying, p_id_seccion integer)
+ RETURNS TABLE(r_verification boolean)
+ LANGUAGE plpgsql
+AS $function$
+begin
+		return query
+select  case when COUNT(*)<=0 then false else true end
+from  fu_lista_preguntas_faltan_resolver(
+		'794f8b91-aef1-4d9b-94ef-520ff61e8f2b',
+		'88611a91-a80c-434d-9401-ada38ee822b8',27);
+end;
+$function$
+;
+
+
+CREATE OR REPLACE FUNCTION public.fu_verificar_hay_mas_preguntas(p_token_participante character varying, p_token_test character varying, p_id_seccion integer)
+ RETURNS TABLE(r_verification boolean)
+ LANGUAGE plpgsql
+AS $function$
+begin
+		return query
+select  case when COUNT(*)<=0 then false else true end
+from  fu_lista_preguntas_faltan_resolver(
+		p_token_participante,
+		p_token_test,p_id_seccion);
+end;
+$function$
+;
+
+ALTER TABLE public.preguntas drop constraint ch_tiempos_segundos
+ALTER TABLE public.preguntas ADD CONSTRAINT ch_tiempos_segundos CHECK ((tiempos_segundos >= 2))
+
+update preguntas set enunciado = 'Elige la palabra que continúa la serie.
+Carro, Opción, Nunca, Angustia,
+' where id_pregunta =107;
+select * from preguntas p 
