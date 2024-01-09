@@ -3396,7 +3396,6 @@ begin
 	--    ALTER TABLE extra_pregunta DROP CONSTRAINT IF EXISTS extra_pregunta_fk_pregunta;
 
 	--eliminar los registros de la bd
-delete from errores_test; 
 delete from progreso_respuestas ; 
 delete from progreso_preguntas  ; 
 delete from progreso_secciones  ;
@@ -3406,6 +3405,7 @@ delete from participantes_test  ;
 delete from participantes  ;
 delete from test_niveles  ;
 delete from test_secciones  ;
+delete from errores_test; 
 delete from test  ; 
 delete from respuestas  ;
 delete from extra_pregunta  ;
@@ -3513,6 +3513,7 @@ $function$
 ;
 
 
+--hacerle un group by
 CREATE OR REPLACE FUNCTION public.fu_verificar_hay_mas_preguntas(p_token_participante character varying, p_token_test character varying, p_id_seccion integer)
  RETURNS TABLE(r_verification boolean)
  LANGUAGE plpgsql
@@ -3534,3 +3535,282 @@ update preguntas set enunciado = 'Elige la palabra que continúa la serie.
 Carro, Opción, Nunca, Angustia,
 ' where id_pregunta =107;
 select * from preguntas p 
+
+
+
+select * from tipos_preguntas_maestra tpm ;
+
+insert into tipos_preguntas_maestra(titulo)values('Opcion Multiple');
+--id de las preguntas de opcion multiple -->2 
+
+select * from tipos_preguntas tp;
+
+--insertar un tipo de pregunta de opcion multiple con imagenes sin enunciado extra 
+insert into tipos_preguntas(
+							titulo, --
+							descripcion, --
+							opcion_multiple, --
+							enunciado_img, --
+							opciones_img, --
+							tipo_pregunta_maestra,--
+							tiempo_enunciado,--
+							icono, --
+							codigo) values 
+							(
+							'Opciones imagenes',
+							'Opcion mutiple con imagenes',
+							true,
+							false,
+							true,
+							2,
+							false,
+							'clasicoimagenes',
+							'MULTIMG'
+							);
+
+--MULTIMG
+--editar el trigger de insertar respuestas a una pregunta para las preguntas de opcion mutiple
+-- DROP FUNCTION public.fu_tr_anadir_respuesta();
+CREATE OR REPLACE FUNCTION public.fu_tr_anadir_respuesta()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	opciones_multiples_op bool;
+	contiene_correctas bool;
+	--Pref_cat varchar(5);
+begin
+	--primero consulta si la la pregunta admite opciones multiples o solo una 
+	select into opciones_multiples_op tp.opcion_multiple  from preguntas p inner join tipos_preguntas tp on p.tipo_pregunta =tp.id_tipo_pregunta 
+	where p.id_pregunta = new.id_pregunta;
+		
+	--hacer un update al registro de la pregunta colocando el bool error = falso porque ya se esta ingresando una repuesta
+
+
+	--hacer el conteo de opciones marcadas como correctas en caso de que solo admita una opcion not
+	if opciones_multiples_op = false then 
+		--consultar cuantas preguntas correctas tiene marcadas porque solo admite 1 este tipo de pregunta
+		select into contiene_correctas case when count(*) >=1 then true else false end  from respuestas r where r.id_pregunta = new.id_pregunta  and r.estado and r.correcta; 
+		--comprar si es true es porque ya tiene respuestas marcadas como correctas 
+		if contiene_correctas = false  then 
+		/*
+		---aqui preguntar si lo que se quiere ingreesar es una opcion coore 
+			if new.correcta then
+					raise exception 'Solo se admite un opcion de respuesta como correcta';
+			end if;
+		else 
+		*/
+			update preguntas set error = true, error_detalle ='Esta pregunta no contiene opcion(es) correta(s)' where id_pregunta =new.id_pregunta;
+		end if;
+		--else if si no contiene correctas entonces actualizar el registro de preguntas bool error = true y detalle 'esta pregunta no contiende opcion(es) correta(s)'
+		if new.correcta then
+			update preguntas set error = false, error_detalle ='' where id_pregunta =new.id_pregunta;
+		end if;
+		--if si la opcion es marcada como correcta acualizar el registro de preguntas bool error= false 
+	--anadir el else para las preguntas multiples 
+	else 
+		--primero preguntar si tiene mas de 2 preguntas como correctas ya que esa es la condicion para que sea multiple 
+		select into contiene_correctas case when count(*) >1 then true else false end  from respuestas r where r.id_pregunta = new.id_pregunta  and r.estado and r.correcta; 
+			if contiene_correctas then 
+				--como contiene mas de 2 correctas entonces la pregunta esta correcta 
+				update preguntas set error = false, error_detalle ='' where id_pregunta =new.id_pregunta;
+			else 
+				-- como no contiene mas de 2 correctas entonces colocar el error que indique que faltan respuestas correctas
+				update preguntas set error = true, error_detalle ='Esta pregunta no contiene más de 2 respuestas correctas' where id_pregunta =new.id_pregunta;
+
+			end if;
+end if;
+return new;
+end
+$function$
+;
+
+--trriger antes de insertar para verificar las preguntas de una sola opcion correcta 
+CREATE OR REPLACE FUNCTION public.fu_tr_anadir_respuesta_before()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	opciones_multiples_op bool;
+	contiene_correctas bool;
+	--Pref_cat varchar(5);
+begin
+	--primero consulta si la la pregunta admite opciones multiples o solo una 
+	select into opciones_multiples_op tp.opcion_multiple  from preguntas p inner join tipos_preguntas tp on p.tipo_pregunta =tp.id_tipo_pregunta 
+	where p.id_pregunta = new.id_pregunta;	
+	--hacer un update al registro de la pregunta colocando el bool error = falso porque ya se esta ingresando una repuesta
+	--hacer el conteo de opciones marcadas como correctas en caso de que solo admita una opcion not
+	if opciones_multiples_op = false then 
+		--consultar cuantas preguntas correctas tiene marcadas porque solo admite 1 este tipo de pregunta
+		select into contiene_correctas case when count(*) >=1 then true else false end  from respuestas r where r.id_pregunta = new.id_pregunta  and r.estado and r.correcta; 
+		--comprar si es true es porque ya tiene respuestas marcadas como correctas 
+		if contiene_correctas then 
+		---aqui preguntar si lo que se quiere ingreesar es una opcion coore 
+			if new.correcta then
+					raise exception 'Solo se admite un opcion de respuesta como correcta';
+			end if;
+		end if;
+end if;
+return new;
+end
+$function$
+;
+
+alter table respuestas
+drop trigger tr_crear_respuesta
+
+
+create trigger tr_crear_respuesta_before before
+insert
+    on
+    public.respuestas for each row execute function fu_tr_anadir_respuesta_before()
+
+delete from preguntas where id_pregunta =115
+	delete from respuestas where id_pregunta =115
+
+
+select * from respuestas r where r.id_pregunta =116
+
+
+
+select * from preguntas where id_pregunta =116;
+--112			
+select * from preguntas order by preguntas.id_pregunta desc limit 1;
+
+
+select  case when count(*) >=1 then true else false end
+from respuestas r where r.id_pregunta = 117  and r.estado and r.correcta; 
+
+select case when count(*) >1 then true else false end  from respuestas r where r.id_pregunta = 115  and r.estado and r.correcta; 
+
+
+
+select * from progreso_preguntas pp i;
+
+--crear un procedimiento almacenado que reciba como parametro el id_progreso y un json con las repuestas 
+CREATE OR REPLACE PROCEDURE public.SP_REGISTRAR_RESPUESTA_MULTIPLE_JSON(
+														p_id_progreso_pregunta int,
+														IN p_respuesta json, 
+														p_tiempo_respuesta int)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	--reemplazar el json para recorrerlo
+	p_p_respuesta JSON;
+	--variables del JSON
+	r_opcion character varying;
+	seleccionado bool;
+begin
+	
+	
+	FOR p_p_respuesta IN SELECT * FROM json_array_elements(p_respuesta)
+    loop
+	    --varibales 
+       r_opcion := (p_p_respuesta ->> 'r_opcion')::varchar;
+	   seleccionado := (p_p_respuesta ->> 'seleccionado')::boolean;
+	  --si el seleccionado es true entonces insertar 
+	  if seleccionado then 
+	  		insert into progreso_respuestas(id_progreso_pregunta,
+	  										respuesta,
+	  										tiempo_respuesta)
+	  										values (
+	  										p_id_progreso_pregunta,
+	  										r_opcion,
+	  										p_tiempo_respuesta
+	  										);
+	  end if;
+    end loop;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+select * from progreso_respuestas pr where pr.id_progreso_pregunta =42;
+
+delete from progreso_respuestas pr where pr.id_progreso_pregunta =42;
+
+--arreglar esta funcion para las repuestas multiples 
+-- DROP FUNCTION public.fu_tr_reponder_progreso_respuestas();
+
+CREATE OR REPLACE FUNCTION public.fu_tr_reponder_progreso_respuestas()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	p_id_progreso_seccion int;
+	p_completo bool;
+	p_porcentaje int;
+begin
+	--primero obtener el id seccion que es unico para cada participante_test 
+	--new.id_progreso_pregunta =5 -->ejemplo
+	select into p_id_progreso_seccion pp.id_progreso_seccion  from progreso_preguntas pp where pp.id_progreso_preguntas=new.id_progreso_pregunta;
+	--hacer la comparacion para obtener el booleano 
+	select into p_completo case when COUNT(*)>=(select COUNT(*) from progreso_preguntas pp where pp.id_progreso_seccion =p_id_progreso_seccion) then true else false end 
+	as Completado
+	from progreso_respuestas pr inner join progreso_preguntas pp on pr.id_progreso_pregunta = pp.id_progreso_preguntas 
+	where pp.id_progreso_seccion =p_id_progreso_seccion;
+	
+	--obtener el porcentaje 
+	select into p_porcentaje
+  	(COUNT(distinct pr.id_progreso_pregunta) * 100) / NULLIF((SELECT COUNT(*) FROM progreso_preguntas pp WHERE pp.id_progreso_seccion = p_id_progreso_seccion), 0) AS PorcentajeCompletado
+	FROM
+  	progreso_respuestas pr
+	INNER JOIN
+  	progreso_preguntas pp ON pr.id_progreso_pregunta = pp.id_progreso_preguntas
+	WHERE
+  	pp.id_progreso_seccion = p_id_progreso_seccion;
+	--actualizar el registro
+	update progreso_secciones set estado_completado=p_completo,porcentaje=p_porcentaje where id_progreso_seccion=p_id_progreso_seccion;
+
+return new;
+end
+$function$
+;
+
+--42 
+	select   pp.id_progreso_seccion  from progreso_preguntas pp where pp.id_progreso_preguntas=42;
+
+select 
+  	(COUNT( distinct pr.id_progreso_pregunta) * 100) / NULLIF((SELECT COUNT(*) FROM progreso_preguntas pp WHERE pp.id_progreso_seccion = 16), 0) AS PorcentajeCompletado
+	FROM
+  	progreso_respuestas pr
+	INNER JOIN
+  	progreso_preguntas pp ON pr.id_progreso_pregunta = pp.id_progreso_preguntas
+	WHERE
+  	pp.id_progreso_seccion = 16
+    	group by 
+  	pr.id_progreso_pregunta;
+  
+  
+  select 
+  	COUNT(pr.id_progreso_pregunta)
+	FROM
+  	progreso_respuestas pr
+	INNER JOIN
+  	progreso_preguntas pp ON pr.id_progreso_pregunta = pp.id_progreso_preguntas
+	WHERE
+  	pp.id_progreso_seccion = 16
+    	group by 
+  	pr.id_progreso_pregunta;
+  
+  
+  
+  SELECT COUNT(DISTINCT pr.id_progreso_pregunta)
+FROM progreso_respuestas pr
+INNER JOIN progreso_preguntas pp ON pr.id_progreso_pregunta = pp.id_progreso_preguntas
+WHERE pp.id_progreso_seccion = 16;
+  
+
+
+
+select * from progreso_respuestas pr ;
+  
+ 
