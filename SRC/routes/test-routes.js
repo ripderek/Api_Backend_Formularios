@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const router = Router();
-const { crear_test, test_usuario, errores_test, test_detalle_id, participantes_test, lista_participantes, lista_participantes_busqueda, datos_formulario_token, ingreso_participante_test, verificacion_ingreso_participante, secciones_test, agregar_seccion_test, progreso_secciones_participante, datos_token_id_test, progreso_seccion_siguiente_pregunta, registrar_respuesta_unica, mas_preguntas } = require('../controllers/Test_/test-controller');
+const { crear_test, test_usuario, errores_test, test_detalle_id, participantes_test, lista_participantes, lista_participantes_busqueda, datos_formulario_token, ingreso_participante_test, verificacion_ingreso_participante, secciones_test, agregar_seccion_test, progreso_secciones_participante, datos_token_id_test, progreso_seccion_siguiente_pregunta, registrar_respuesta_unica, mas_preguntas, registrar_respuestas_multiples } = require('../controllers/Test_/test-controller');
 
 //router.post('/Login', verificaUser);
 router.post('/Crear_Test', crear_test);
@@ -20,6 +20,9 @@ router.get('/HayMas/:p_id_user/:p_id_token_test/:id_seccion', mas_preguntas);
 
 router.post('/IngresoParticipanteTest', ingreso_participante_test);
 router.post('/RegistrarPreguntaUnica', registrar_respuesta_unica);
+//registrar_respuestas_multiples
+router.post('/RegistrarPreguntaMultiples', registrar_respuestas_multiples);
+
 
 //esta ruta debe ser publica
 router.get('/DatosFormulario/:token', datos_formulario_token);
