@@ -89,6 +89,42 @@ const crear_pregunta = async (req, res, next) => {
         return res.status(404).json({ message: error.message });
     }
 }
+//funcion para crear la pregunta de tipo ingresar numero mediante input 
+const crear_pregunta_input_num = async (req, res, next) => {
+    try {
+
+        //file de la foto
+        const { file } = req
+        const foto = `${ipFileServer}${file?.filename}`;
+        //crear el user en la BD
+        const { p_enunciado } = req.body;
+        const { p_tiempos_segundos } = req.body;
+        const { p_tipo_pregunta } = req.body;
+        const { p_id_nivel } = req.body;
+        //esta es la respuesta
+        const { p_tiempo_img } = req.body;
+
+        if (p_tiempos_segundos <= 0)
+            return res.status(404).json({ message: "El tiempo en de respuesta no puede ser menor o igual a 0 segundos" });
+
+
+        if (!p_tiempo_img || isNaN(parseInt(p_tiempo_img)))
+            return res.status(404).json({ message: "La repuesta numerica no puede estar vacia" });
+
+        const users = await pool.query('Call sp_crear_pregunta_INGRNUM($1,$2,$3,$4,$5,$6)', [p_enunciado, p_tiempos_segundos, p_tipo_pregunta, p_id_nivel, foto, p_tiempo_img]);
+        console.log(users);
+
+        //Llamar a la funcion que enviar el correo
+        //enviarMail(nombres, identificacion, correo2);
+
+        return res.status(200).json({ message: "Se creo la pregunta" });
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
+
+
 //funcion para crear una pregunta de tipo SELCIMG
 const crear_pregunta_SELCIMG = async (req, res, next) => {
     try {
@@ -229,6 +265,40 @@ const ver_img_respuesta_MEMRZAR = async (req, res, next) => {
     }
 }
 
+//Funcion para crear pregunta con Claves Multiples 
+const SP_crear_pregunta_clave_valor_OPCLAVA = async (req, res, next) => {
+    //SP_REGISTRAR_RESPUESTA_MULTIPLE_JSON
+    try {
+        //file de la foto
+        const { file } = req
+        const foto = `${ipFileServer}${file?.filename}`;
+        //crear el user en la BD
+        const { p_enunciado } = req.body;
+        const { p_tiempos_segundos } = req.body;
+        const { p_tipo_pregunta } = req.body;
+        const { p_id_nivel } = req.body;
+        const { p_claves_valor } = req.body;
+        console.log(foto);
+        console.log(p_enunciado);
+        console.log(p_claves_valor);
+        console.log(JSON.stringify(p_claves_valor));
+        if (p_tiempos_segundos <= 0)
+            return res.status(404).json({ message: "El tiempo en de respuesta no puede ser menor o igual a 0 segundos" });
+
+        const users = await pool.query('Call SP_crear_pregunta_clave_valor_OPCLAVA($1,$2,$3,$4,$5,$6)',
+            [p_enunciado, p_tiempos_segundos, p_tipo_pregunta, p_id_nivel, foto, p_claves_valor]);
+        console.log(users);
+
+
+
+
+        //return res.status(200).json(result.rows);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ error: error.message });
+    }
+}
+
 module.exports = {
     preguntas_nivel,
     tipos_maestros_preguntas,
@@ -244,5 +314,7 @@ module.exports = {
     crear_pregunta_SELCIMG,
     SELCIMG_dato_pregunta,
     SELCIMG_dato_pregunta_id_pregunta,
-    crear_respuesta_text
+    crear_respuesta_text,
+    crear_pregunta_input_num,
+    SP_crear_pregunta_clave_valor_OPCLAVA
 };

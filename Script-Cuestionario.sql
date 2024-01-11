@@ -1954,13 +1954,13 @@ end;
 $function$
 ;
 
-
+show time zone
 --procedimiento almacenado para guardar la informacion del participate test 
 --es decir la facultad
 --carrera
 --seemstre 
 --    Fecha_Creacion TIMESTAMPTZ DEFAULT Now(),
-
+select Now();
 alter table Datos_Participante_Test 
 add column  Fecha_Creacion TIMESTAMPTZ DEFAULT Now();
 
@@ -3812,5 +3812,273 @@ WHERE pp.id_progreso_seccion = 16;
 
 
 select * from progreso_respuestas pr ;
-  
- 
+
+
+/*
+ OPCION UNICA
+-Crear pregunta de tipo Texto-->Numero
+	-La pregunta tiene enunciado img.
+	-La respuesta es de tipo input-->Num
+-Se puede parametrizar si la pregunta es de tipo input y si el input es de tipo texto o numerico  
+ * */
+select * from tipos_preguntas tp;
+insert into tipos_preguntas(titulo,descripcion,opcion_multiple,enunciado_img,opciones_img,tipo_pregunta_maestra,tiempo_enunciado,icono,codigo)
+					values('Ingresar numero','Tipo de pregunta donde la respuesta es un numero ingresado',false,true,false,1,false,'clasico','INGRNUM');
+				
+--crear la funcion que permita registrar pregunta de este tipo con la respuesta ya incluida en la consulta 
+-- DROP PROCEDURE public.sp_crear_pregunta_memrzar(varchar, int4, int4, int4, varchar, int4);
+
+CREATE OR REPLACE PROCEDURE public.sp_crear_pregunta_INGRNUM(IN p_enunciado character varying, IN p_tiempos_segundos integer, IN p_tipo_pregunta integer, IN p_id_nivel integer, IN p_url_imagen character varying, IN p_tiempo_img integer)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	p_id_pregunta_creada int;
+begin
+	if trim(p_enunciado)='' then
+			raise exception 'Enunciado no puede estar vacio';
+	end if;
+	--crear la pregunta
+	insert into preguntas(id_nivel,tiempos_segundos,enunciado,tipo_pregunta,error_detalle)
+				values 	 (p_id_nivel,p_tiempos_segundos,p_enunciado,p_tipo_pregunta,'No existen opciones de respuestas para la pregunta');
+	--ahora obtener el id de la pregunta creada
+	select into p_id_pregunta_creada id_pregunta from preguntas where enunciado = p_enunciado;
+
+	--ahora insertar el detalle de la pregunta en este caso es una imagen para el enunciado y el tiempo para poder verla
+	insert into extra_pregunta(id_pregunta, extra, tiempo_enunciado) 
+				values 		  (p_id_pregunta_creada,p_url_imagen,0);
+			
+	--ahora insertar la respuesta
+	insert into respuestas (id_pregunta,opcion,correcta) values (p_id_pregunta_creada,p_tiempo_img,true);		
+	--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+				
+
+ select * from respuestas r ;
+select * from preguntas p 
+
+alter table respuestas drop CONSTRAINT respuestas_opcion_key
+ALTER TABLE public.respuestas ADD CONSTRAINT respuestas_opcion_key UNIQUE (opcion,id_pregunta)
+
+select * from preguntas p ;
+
+select * from progreso_respuestas pr 
+select * from usuario u 
+
+
+
+select * from secciones s
+inner join niveles n on s.id_seccion = n.id_seccion 
+inner join preguntas p on p.id_nivel =n.id_nivel 
+where s.titulo ='Memoria' and n.nivel =3;
+
+
+
+--crear un nuevo tipo de pregunta en este caso se llamara Clave Valor y tendra un enunciado IMG 
+--crear las tablas CLAVE y VALOR para poder registrar el nuevo tipo de pregunta 
+drop table Claves_Preguntas
+create table Claves_Preguntas(
+	id_clave INT GENERATED ALWAYS AS IDENTITY,
+	id_pregunta int not null,
+	Clave character varying not null,
+	Tipo character varying not null,
+		primary key (id_clave)
+);
+
+ALTER TABLE public.Claves_Preguntas ADD CONSTRAINT UQclaves_preguntas UNIQUE (Clave,id_pregunta)
+
+ALTER TABLE Claves_Preguntas 
+drop CONSTRAINT CK_Tipos_Claves
+CHECK (
+	Clave = 'Texto' or Clave = 'Numero' 
+);
+
+alter table Claves_Preguntas 
+add constraint FK_ID_pregunta_clave
+FOREIGN KEY (id_pregunta) 
+references preguntas(id_pregunta);
+
+
+select * from preguntas p 
+select * from respuestas r ;
+
+--crear la tabla valor para las respuestas 
+create table Valor_Preguntas(
+	id_valor INT GENERATED ALWAYS AS IDENTITY,
+	id_respuesta int not null,
+	id_clave int not null,
+	Valor character varying not null,
+		primary key (id_valor)
+);
+
+
+alter table Valor_Preguntas 
+add constraint FK_ID_Clave_Valor
+FOREIGN KEY (id_clave) 
+references Claves_Preguntas(id_clave);
+
+alter table Valor_Preguntas 
+add constraint FK_ID_Repuesta_Valor
+FOREIGN KEY (id_respuesta) 
+references respuestas(id_respuesta);
+
+--anadir un campo a la tabla tipos preguntas para definir el campo ClaveValorComo Bool
+
+
+select * from tipos_preguntas tp 
+alter table tipos_preguntas 
+add column ClaveValor bool;
+update tipos_preguntas set ClaveValor = false ;
+ alter table tipos_preguntas alter column ClaveValor set not null;
+
+--crear el tipo de pregunta ClaveValor como opcion Multiple 
+select * from tipos_preguntas tp 
+
+
+--funcion para crear una pregunta que contenga claves para las repuestas xdxd skere modo diablo
+insert into tipos_preguntas(titulo,descripcion,opcion_multiple,enunciado_img,opciones_img,tipo_pregunta_maestra,tiempo_enunciado,icono,codigo,ClaveValor)
+					values('Ingreso de datos','Se pueden ingresar diferentes tipos de datos',false,true,false,2,false,'clasico','OPCLAVA',True);
+		
+				drop procedure SP_crear_pregunta_clave_valor_OPCLAVA
+--funcion que permita crear una pregunta con clave valor
+CREATE OR REPLACE PROCEDURE public.SP_crear_pregunta_clave_valor_OPCLAVA(
+														p_enunciado varchar(800),
+														p_tiempos_segundos int,
+														p_tipo_pregunta int,
+														p_id_nivel int,
+														p_url_imagen varchar(800),											
+														IN p_claves_valor json)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	p_id_pregunta_creada int;
+	--reemplazar el json para recorrerlo
+	p_p_claves_valor JSON;
+	--variables del JSON
+	r_clave character varying;
+	r_tipo character varying;
+begin
+	--CREAR LA PREGUNTA
+	if trim(p_enunciado)='' then
+			raise exception 'Enunciado no puede estar vacio';
+	end if;
+	--crear la pregunta
+	insert into preguntas(id_nivel,tiempos_segundos,enunciado,tipo_pregunta,error_detalle)
+				values 	 (p_id_nivel,p_tiempos_segundos,p_enunciado,p_tipo_pregunta,'No existen opciones de respuestas para la pregunta');
+	--ahora obtener el id de la pregunta creada
+	select into p_id_pregunta_creada id_pregunta from preguntas where enunciado = p_enunciado;
+
+	--ahora insertar el detalle de la pregunta en este caso es una imagen para el enunciado y el tiempo para poder verla
+	insert into extra_pregunta(id_pregunta, extra, tiempo_enunciado) 
+				values 		  (p_id_pregunta_creada,p_url_imagen,100);
+	
+	---RECORRER EL JSON PAR ANADIR LAS CLAVES
+	FOR p_p_claves_valor IN SELECT * FROM json_array_elements(p_claves_valor)
+    loop
+	    --varibales 
+       r_clave := (p_p_claves_valor ->> 'clave')::varchar;
+	   r_tipo := (p_p_claves_valor ->> 'tipo')::varchar;
+		--insertar los datos del JSON
+	  		insert into claves_preguntas(
+	  									id_pregunta,
+	  									clave,
+	  									tipo
+	  									)
+	  									values(	
+	  									p_id_pregunta_creada,
+	  									r_clave,
+	  									r_tipo
+	  									);
+
+    end loop;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+ALTER TABLE Claves_Preguntas 
+add CONSTRAINT CK_Tipos_Claves
+CHECK (
+	tipo = 'Texto' or tipo = 'Numero' 
+);
+
+select * from 
+select * from claves_preguntas ;
+
+Create or Replace Procedure SP_Crear_Pregunta_MEMRZAR(
+										p_enunciado varchar(800),
+										p_tiempos_segundos int,
+										p_tipo_pregunta int,
+										p_id_nivel int,
+										p_url_imagen varchar(800),
+										p_tiempo_img int
+										  )
+Language 'plpgsql'
+AS $$
+declare
+	p_id_pregunta_creada int;
+begin
+	if trim(p_enunciado)='' then
+			raise exception 'Enunciado no puede estar vacio';
+	end if;
+	--crear la pregunta
+	insert into preguntas(id_nivel,tiempos_segundos,enunciado,tipo_pregunta,error_detalle)
+				values 	 (p_id_nivel,p_tiempos_segundos,p_enunciado,p_tipo_pregunta,'No existen opciones de respuestas para la pregunta');
+	--ahora obtener el id de la pregunta creada
+	select into p_id_pregunta_creada id_pregunta from preguntas where enunciado = p_enunciado;
+
+	--ahora insertar el detalle de la pregunta en este caso es una imagen para el enunciado y el tiempo para poder verla
+	insert into extra_pregunta(id_pregunta, extra, tiempo_enunciado) 
+				values 		  (p_id_pregunta_creada,p_url_imagen,p_tiempo_img);
+	--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
