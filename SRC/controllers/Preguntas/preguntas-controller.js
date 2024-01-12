@@ -251,6 +251,16 @@ const opciones_respuestas_MEMRZAR = async (req, res, next) => {
         return res.status(404).json({ message: error.message });
     }
 }
+// FUNCION PARA VER LAS REPUESTAS DE UNA PREGUNTA CON UNA SOLA CLAVE VALOR
+const opciones_respuestas_1_CLAVE_VALOR = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('select * from fu_repuestas_con_valores1($1)', [id]);
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
 //funcion para ver la respuesta de tipo img en MEMRZAR
 const ver_img_respuesta_MEMRZAR = async (req, res, next) => {
     try {
@@ -298,6 +308,95 @@ const SP_crear_pregunta_clave_valor_OPCLAVA = async (req, res, next) => {
         return res.status(404).json({ error: error.message });
     }
 }
+//CREAR PREGUNTA DE TIPO CLAVE VALOR PERO DE TIPO 1 ES DECIR CON UN SOLO CAMPO
+//SP_crear_pregunta_clave_valor_OPCLAVA_no_JSON
+const SP_crear_pregunta_clave_valor_OPCLAVA_no_json = async (req, res, next) => {
+    //SP_REGISTRAR_RESPUESTA_MULTIPLE_JSON
+    try {
+        //file de la foto
+        const { file } = req
+        const foto = `${ipFileServer}${file?.filename}`;
+        //crear el user en la BD
+        const { p_enunciado } = req.body;
+        const { p_tiempos_segundos } = req.body;
+        const { p_tipo_pregunta } = req.body;
+        const { p_id_nivel } = req.body;
+        const { p_clave } = req.body;
+        const { p_tiempo_enunciado } = req.body;
+
+        if (p_tiempos_segundos <= 0)
+            return res.status(404).json({ message: "El tiempo en de respuesta no puede ser menor o igual a 0 segundos" });
+
+        const users = await pool.query('Call SP_crear_pregunta_clave_valor_OPCLAVA_no_JSON($1,$2,$3,$4,$5,$6,$7)',
+            [p_enunciado, p_tiempos_segundos, p_tipo_pregunta, p_id_nivel, foto, p_clave, p_tiempo_enunciado]);
+        // console.log(users);
+        //return res.status(200).json(result.rows);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ error: error.message });
+    }
+}
+const SP_crear_pregunta_clave_valor_OPCLAV2_no_json = async (req, res, next) => {
+    //SP_REGISTRAR_RESPUESTA_MULTIPLE_JSON
+    try {
+        //file de la foto
+        const { file } = req
+        const foto = `${ipFileServer}${file?.filename}`;
+        //crear el user en la BD
+        const { p_enunciado } = req.body;
+        const { p_tiempos_segundos } = req.body;
+        const { p_tipo_pregunta } = req.body;
+        const { p_id_nivel } = req.body;
+        const { p_clave } = req.body;
+        //p_clave2
+        const { p_clave2 } = req.body;
+        const { p_tiempo_enunciado } = req.body;
+
+        if (p_tiempos_segundos <= 0)
+            return res.status(404).json({ message: "El tiempo en de respuesta no puede ser menor o igual a 0 segundos" });
+
+        const users = await pool.query('Call SP_crear_pregunta_clave_valor_OPCLAV2_no_JSON($1,$2,$3,$4,$5,$6,$7,$8)',
+            [p_enunciado, p_tiempos_segundos, p_tipo_pregunta, p_id_nivel, foto, p_clave, p_clave2, p_tiempo_enunciado]);
+        // console.log(users);
+        //return res.status(200).json(result.rows);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ error: error.message });
+    }
+}
+
+
+//funcion que retorner las claves de una pregunta 
+const Claves_Preguntas = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('select * from claves_preguntas_id($1)', [id]);
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
+//Crear Repuesta Con una clave Valor 
+//SP_anadir_respuesta_una_CLAVE_VALOR
+const crear_respuesta_CLAVE_VALOR = async (req, res, next) => {
+    try {
+
+        //file de la foto
+        const { file } = req
+        const foto = `${ipFileServerRES}${file?.filename}`;
+        //crear el user en la BD
+        const { id_pregunta } = req.body;
+        const { r_id_clave } = req.body;
+        const { r_valor } = req.body;
+
+        const users = await pool.query('Call SP_anadir_respuesta_una_CLAVE_VALOR($1,$2,$3,$4)', [id_pregunta, foto, r_id_clave, r_valor]);
+
+        return res.status(200).json({ message: "Se creo la respuesta" });
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
 
 module.exports = {
     preguntas_nivel,
@@ -316,5 +415,10 @@ module.exports = {
     SELCIMG_dato_pregunta_id_pregunta,
     crear_respuesta_text,
     crear_pregunta_input_num,
-    SP_crear_pregunta_clave_valor_OPCLAVA
+    SP_crear_pregunta_clave_valor_OPCLAVA,
+    Claves_Preguntas,
+    SP_crear_pregunta_clave_valor_OPCLAVA_no_json,
+    crear_respuesta_CLAVE_VALOR,
+    opciones_respuestas_1_CLAVE_VALOR,
+    SP_crear_pregunta_clave_valor_OPCLAV2_no_json
 };
