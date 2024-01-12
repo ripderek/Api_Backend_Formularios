@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const router = Router();
-const { preguntas_nivel, tipos_maestros_preguntas, plantillas_disponibles, icono_plantilla, crear_pregunta, MEMRZAR_dato_pregunta, ver_imagen_pregunta, MEMRZAR_dato_pregunta_id_pregunta, opciones_respuestas_MEMRZAR, ver_img_respuesta_MEMRZAR, crear_respuesta_MEMRZAR, crear_pregunta_SELCIMG, SELCIMG_dato_pregunta, SELCIMG_dato_pregunta_id_pregunta, crear_respuesta_text, crear_pregunta_input_num, SP_crear_pregunta_clave_valor_OPCLAVA } = require('../controllers/Preguntas/preguntas-controller');
+const { preguntas_nivel, tipos_maestros_preguntas, plantillas_disponibles, icono_plantilla, crear_pregunta, MEMRZAR_dato_pregunta, ver_imagen_pregunta, MEMRZAR_dato_pregunta_id_pregunta, opciones_respuestas_MEMRZAR, ver_img_respuesta_MEMRZAR, crear_respuesta_MEMRZAR, crear_pregunta_SELCIMG, SELCIMG_dato_pregunta, SELCIMG_dato_pregunta_id_pregunta, crear_respuesta_text, crear_pregunta_input_num, SP_crear_pregunta_clave_valor_OPCLAVA, Claves_Preguntas, SP_crear_pregunta_clave_valor_OPCLAVA_no_json, crear_respuesta_CLAVE_VALOR, opciones_respuestas_1_CLAVE_VALOR, SP_crear_pregunta_clave_valor_OPCLAV2_no_json } = require('../controllers/Preguntas/preguntas-controller');
 const { upload } = require('../middleware/multer-preguntas');
 const { uploadRes } = require('../middleware/multer-respuestas');
 
@@ -24,7 +24,34 @@ router.get('/SELCIMG_Datos_pregunta/:id', SELCIMG_dato_pregunta);
 router.get('/SELCIMG_Datos_pregunta_id_pregunta/:id', SELCIMG_dato_pregunta_id_pregunta);
 router.post('/Crear_pregunta_input_num', upload.single('file'), crear_pregunta_input_num)
 router.post('/Crear_pregunta_clave_valor', upload.single('file'), SP_crear_pregunta_clave_valor_OPCLAVA)
+router.get('/Obtener_Claves/:id', Claves_Preguntas);
+router.post('/Crear_pregunta_clave_valor_noJSON', upload.single('file'), SP_crear_pregunta_clave_valor_OPCLAVA_no_json)
+//SP_crear_pregunta_clave_valor_OPCLAV2_no_json
+router.post('/Crear_pregunta_clave_valor_noJSON2', upload.single('file'), SP_crear_pregunta_clave_valor_OPCLAV2_no_json)
+
+router.post('/Crear_respuesta1ClaveValor', uploadRes.single('file'), crear_respuesta_CLAVE_VALOR);
+//opciones_respuestas_1_CLAVE_VALOR
+router.get('/Respuestas1CALVEVALOR/:id', opciones_respuestas_1_CLAVE_VALOR);
 
 //SELCIMG_dato_pregunta_id_pregunta
-
-module.exports = router; 
+module.exports = router;
+/*
+        |I'M NOT IN DANGER SKYLER ------
+        \\I'M THE DANGER
+    ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⠿⠿⠿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+    '⣿⣿⣿⣿⣿⣿⣿⣿⠟⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠉⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+    '⣿⣿⣿⣿⣿⣿⣿⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢺⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+    '⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠆⠜⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+    '⣿⣿⣿⣿⠿⠿⠛⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠻⣿⣿⣿⣿⣿
+    '⣿⣿⡏⠁⠀⠀⠀⠀⠀⣀⣠⣤⣤⣶⣶⣶⣶⣶⣦⣤⡄⠀⠀⠀⠀⢀⣴⣿⣿⣿⣿⣿
+    '⣿⣿⣷⣄⠀⠀⠀⢠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢿⡧⠇⢀⣤⣶⣿⣿⣿⣿⣿⣿⣿
+    '⣿⣿⣿⣿⣿⣿⣾⣮⣭⣿⡻⣽⣒⠀⣤⣜⣭⠐⢐⣒⠢⢰⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿
+    '⣿⣿⣿⣿⣿⣿⣿⣏⣿⣿⣿⣿⣿⣿⡟⣾⣿⠂⢈⢿⣷⣞⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿
+    '⣿⣿⣿⣿⣿⣿⣿⣿⣽⣿⣿⣷⣶⣾⡿⠿⣿⠗⠈⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+    '⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠻⠋⠉⠑⠀⠀⢘⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+    '⣿⣿⣿⣿⣿⣿⣿⡿⠟⢹⣿⣿⡇⢀⣶⣶⠴⠶⠀⠀⢽⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+    '⣿⣿⣿⣿⣿⣿⡿⠀⠀⢸⣿⣿⠀⠀⠣⠀⠀⠀⠀⠀⡟⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+    '⣿⣿⣿⡿⠟⠋⠀⠀⠀⠀⠹⣿⣧⣀⠀⠀⠀⠀⡀⣴⠁⢘⡙⢿⣿⣿⣿⣿⣿⣿⣿⣿
+    '⠉⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⢿⠗⠂⠄⠀⣴⡟⠀⠀⡃⠀⠉⠉⠟⡿⣿⣿⣿⣿
+    '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢷⠾⠛⠂⢹⠀⠀⠀⢡⠀⠀⠀⠀⠀⠙⠛⠿⢿'
+*/

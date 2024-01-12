@@ -602,7 +602,7 @@ values ('Memorizar con imagenes','El enunciado y las opciones son representadas 
 
 
 --Segunda Plantilla
-insert into tipos_preguntas (titulo, descripcion, 
+_preguntas (titulo, descripcion, 
 		opcion_multiple, enunciado_img, tiempo_enunciado, opciones_img, tipo_pregunta_maestra, icono)
 values ('Seleccionar Imagen','Las opciones son representadas con imagenes',
 		false, true, false, true, 1,'src/');
@@ -4047,6 +4047,380 @@ begin
             RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
 END;
 $$;
+
+--hacer una funcion que retorne los datos de una pregunta de tipo Clave valor 
+--o hacer una funcion aparte que retorne todos los datos de la clave 
+drop function claves_preguntas_id
+CREATE OR REPLACE FUNCTION public.claves_preguntas_id(p_id_pregunta int)
+ RETURNS TABLE(r_id_clave int, r_clave character varying, r_tipo character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select id_clave , clave  , tipo from 
+	claves_preguntas cp 
+	where cp.id_pregunta = p_id_pregunta;
+end;
+$function$
+;
+
+select * from claves_preguntas_id(140);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   select cast(CONCAT(uuid_generate_v1 (), CAST('.jpg' AS VARCHAR)) as varchar(100)) AS nivel
+
+
+select uuid_generate_v1() as xd;
+
+
+select * from preguntas p ;
+select * from extra_pregunta ep ;
+select * from claves_preguntas cp ;
+
+
+delete from extra_pregunta where id_pregunta = 140;
+delete from claves_preguntas where id_pregunta = 140;
+delete from preguntas where id_pregunta = 140;
+
+
+--nueva funcion para enviar preguntas con clave valor de TIPO 1 es decir solo se ingresa 1 
+CREATE OR REPLACE PROCEDURE public.SP_crear_pregunta_clave_valor_OPCLAVA_no_JSON(
+														p_enunciado varchar(800),
+														p_tiempos_segundos int,
+														p_tipo_pregunta int,
+														p_id_nivel int,
+														p_url_imagen varchar(800),											
+														p_clave varchar(500),
+														p_tiempo_enunciado int)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	p_id_pregunta_creada int;
+begin
+	--CREAR LA PREGUNTA
+	if trim(p_enunciado)='' then
+			raise exception 'Enunciado no puede estar vacio';
+	end if;
+	--crear la pregunta
+	insert into preguntas(id_nivel,tiempos_segundos,enunciado,tipo_pregunta,error_detalle)
+				values 	 (p_id_nivel,p_tiempos_segundos,p_enunciado,p_tipo_pregunta,'No existen opciones de respuestas para la pregunta');
+	--ahora obtener el id de la pregunta creada
+	select into p_id_pregunta_creada id_pregunta from preguntas where enunciado = p_enunciado;
+
+	--ahora insertar el detalle de la pregunta en este caso es una imagen para el enunciado y el tiempo para poder verla
+	insert into extra_pregunta(id_pregunta, extra, tiempo_enunciado) 
+				values 		  (p_id_pregunta_creada,p_url_imagen,p_tiempo_enunciado);
+	
+	---RECORRER EL JSON PAR ANADIR LAS CLAVES
+	---YA NO SE RECCORRE EL JSON SI NO QUE SE INGRESA LA CLAVE DIRECTO CUANDO ES DE TIPO 1
+			insert into claves_preguntas(
+	  									id_pregunta,
+	  									clave,
+	  									tipo
+	  									)
+	  									values(	
+	  									p_id_pregunta_creada,
+	  									p_clave,
+	  									'Texto'
+	  									);
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+select * from claves_preguntas cp 
+
+--funcion para crear una repuesta con una sola clave de pregunta skere modo diablo 
+drop procedure SP_anadir_respuesta_una_CLAVE_VALOR
+CREATE OR REPLACE PROCEDURE SP_anadir_respuesta_una_CLAVE_VALOR(
+		p_id_pregunta int,
+		p_url_img varchar(500),
+		--datos de la clave valor
+		r_id_clave int,
+			 character varying
+		)
+LANGUAGE plpgsql
+AS $procedure$
+declare 
+	p_id_respuesta_creada int;
+Begin
+	insert into respuestas(
+						id_pregunta,
+						opcion,
+						correcta
+						)values
+						(
+						 p_id_pregunta,
+						 p_url_img,
+						 true
+						);
+	--obtener el id de la respuesta creada ultima
+	select into p_id_respuesta_creada r.id_respuesta  from respuestas r where r.id_pregunta=id_pregunta
+	order by r.id_respuesta  desc limit 1;
+
+	--ingresar valor de la respuesta en la tabla valor xd
+	insert into valor_preguntas(id_respuesta,id_clave,valor)
+		values(p_id_respuesta_creada,r_id_clave,r_valor);
+
+--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+select r.id_respuesta  from respuestas r where r.id_pregunta=83 
+order by r.id_respuesta  desc limit 1
+
+select *from valor_preguntas vp ;
+
+
+--Ver las respuestas con las claves 
+
+drop FUNCTION public.fu_repuestas_con_valores1(p_id_pregunta integer)
+
+CREATE OR REPLACE FUNCTION public.fu_repuestas_con_valores1(p_id_pregunta integer)
+ RETURNS TABLE(r_id_repuesta integer, r_opcion character varying, r_correcta boolean, r_estado boolean, r_eliminado boolean, r_valor character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select r.id_respuesta, r.opcion, r.correcta, r.estado, r.eliminado, vp.valor from respuestas r 
+	inner join valor_preguntas vp on r.id_respuesta = vp.id_respuesta 
+	where id_pregunta = p_id_pregunta;
+	end;
+$function$
+;
+select * from valor_preguntas vp 
+select * from fu_repuestas_con_valores1(141);
+
+select * from claves_preguntas cp 
+
+
+select * from tipos_preguntas tp 
+
+select * from preguntas p where p.tipo_pregunta  = 8
+
+
+--registrar las respuestas con claves-valor 
+--se tiene que enviar el id_pregunta_progreso 
+--el JSON las respuestas 
+---
+-- DROP PROCEDURE public.sp_registrar_respuesta_multiple_json(int4, json, int4);
+
+CREATE OR REPLACE PROCEDURE public.sp_registrar_respuesta_multiple_json_CLAVE_VALOR1
+(IN p_id_progreso_pregunta integer, IN p_respuesta json, IN p_tiempo_respuesta integer)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	--reemplazar el json para recorrerlo
+	p_p_respuesta JSON;
+	--variables del JSON
+
+	r_opcion character varying;
+	r_id_clave int;
+	r_valor character varying;
+	--seleccionado bool;
+	r_id_respuesta_creada int;
+begin
+	
+	
+	FOR p_p_respuesta IN SELECT * FROM json_array_elements(p_respuesta)
+    loop
+	    --varibales 
+       r_opcion := (p_p_respuesta ->> 'opcion')::varchar;
+	   r_id_clave := (p_p_respuesta ->> 'id_clave')::int;
+	   r_valor := (p_p_respuesta ->> 'r_valor')::varchar;
+	  		insert into progreso_respuestas(id_progreso_pregunta,
+	  										respuesta,
+	  										tiempo_respuesta)
+	  										values (
+	  										p_id_progreso_pregunta,
+	  										r_opcion,
+	  										p_tiempo_respuesta
+	  										);
+	  		--ahora buscar el id de la ultima respuesta insertada para insertar en clave valor el valor y el id_clave 
+			select into r_id_respuesta_creada  id_progreso_respuestas  from progreso_respuestas pr where pr.id_progreso_pregunta = id_progreso_pregunta order by id_progreso_respuestas desc limit 1;
+		--ahora insertar en clave valor 
+		insert into Clave_Valor_respuesta(
+											id_progreso_respuesta,
+											clave,
+											valor
+											)values(
+											r_id_respuesta_creada,
+											r_id_clave,
+											r_valor
+											);
+    end loop;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+
+
+;
+
+--primero crear la tabla CLAVE_VALOR EN RESPUESTAS PROGRESO 
+select id_progreso_respuestas  from progreso_respuestas pr where pr.id_progreso_pregunta = 95 order by id_progreso_respuestas desc limit 1;
+
+drop table Clave_Valor_respuesta
+create table Clave_Valor_respuesta(
+	id_registro INT GENERATED ALWAYS AS IDENTITY,
+	id_progreso_respuesta int not null,
+	Clave int not null,
+	Valor character varying not null,
+		primary key (id_registro)
+);
+
+alter table Clave_Valor_respuesta 
+drop constraint FK_ID_progreso_respuesta_claves
+
+
+alter table Clave_Valor_respuesta 
+add constraint FK_ID_progreso_respuesta_claves
+FOREIGN KEY (id_progreso_respuesta) 
+references progreso_respuestas(id_progreso_respuestas);
+
+
+
+alter table Clave_Valor_respuesta 
+add constraint FK_ID_progreso_respuesta_claves_ID_CLAVE
+FOREIGN KEY (Clave) 
+references claves_preguntas(id_clave);
+
+
+
+select * from claves_preguntas cp 
+
+
+alter table Clave_Valor_respuesta 
+add column tipo_pregunta_maestra int;
+
+
+
+
+select * from Clave_Valor_respuesta
+select * from progreso_respuestas pr ;
+
+
+
+
+
+
+---CREAR UN NUEVO TIPO DE PREGUNTA PARA LOS QUE TIENEN CLAVE VALOR DE 2 INPUT
+--funcion para crear una pregunta que contenga claves para las repuestas xdxd skere modo diablo
+insert into tipos_preguntas(titulo,descripcion,opcion_multiple,enunciado_img,opciones_img,tipo_pregunta_maestra,tiempo_enunciado,icono,codigo,ClaveValor)
+					values('Ingreso de datos 2','Se pueden ingresar 2 diferentes tipos de datos',true,true,true,2,true,'clasico','OPCLAV2',True);
+	
+select * from tipos_preguntas tp 
+
+
+
+--nueva funcion para enviar preguntas con clave valor de TIPO 2 es decir 2 se ingresa 2 
+CREATE OR REPLACE PROCEDURE public.SP_crear_pregunta_clave_valor_OPCLAV2_no_JSON(
+														p_enunciado varchar(800),
+														p_tiempos_segundos int,
+														p_tipo_pregunta int,
+														p_id_nivel int,
+														p_url_imagen varchar(800),											
+														p_clave varchar(500),
+														p_clave2 varchar(500),
+														p_tiempo_enunciado int)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	p_id_pregunta_creada int;
+begin
+	--CREAR LA PREGUNTA
+	if trim(p_enunciado)='' then
+			raise exception 'Enunciado no puede estar vacio';
+	end if;
+	--crear la pregunta
+	insert into preguntas(id_nivel,tiempos_segundos,enunciado,tipo_pregunta,error_detalle)
+				values 	 (p_id_nivel,p_tiempos_segundos,p_enunciado,p_tipo_pregunta,'No existen opciones de respuestas para la pregunta');
+	--ahora obtener el id de la pregunta creada
+	select into p_id_pregunta_creada id_pregunta from preguntas where enunciado = p_enunciado;
+
+	--ahora insertar el detalle de la pregunta en este caso es una imagen para el enunciado y el tiempo para poder verla
+	insert into extra_pregunta(id_pregunta, extra, tiempo_enunciado) 
+				values 		  (p_id_pregunta_creada,p_url_imagen,p_tiempo_enunciado);
+	
+	---RECORRER EL JSON PAR ANADIR LAS CLAVES
+	---YA NO SE RECCORRE EL JSON SI NO QUE SE INGRESA LA CLAVE DIRECTO CUANDO ES DE TIPO 1
+			insert into claves_preguntas(
+	  									id_pregunta,
+	  									clave,
+	  									tipo
+	  									)
+	  									values(	
+	  									p_id_pregunta_creada,
+	  									p_clave,
+	  									'Texto'
+	  									);
+	  		--insertar la 2da clave 
+	  		insert into claves_preguntas(
+	  									id_pregunta,
+	  									clave,
+	  									tipo
+	  									)
+	  									values(	
+	  									p_id_pregunta_creada,
+	  									p_clave2,
+	  									'Texto'
+	  									);						
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
