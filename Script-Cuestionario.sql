@@ -3367,6 +3367,9 @@ insert into tipos_preguntas(
 						'LOCIMG'
 						);
 
+					
+					
+select * from preguntas p where p.id_pregunta =146
 --crear un script para resetear la base de datos
 select * from progreso_respuestas pr; 
 select * from progreso_preguntas pp ; 
@@ -3396,6 +3399,7 @@ begin
 	--    ALTER TABLE extra_pregunta DROP CONSTRAINT IF EXISTS extra_pregunta_fk_pregunta;
 
 	--eliminar los registros de la bd
+delete from clave_valor_respuesta;
 delete from progreso_respuestas ; 
 delete from progreso_preguntas  ; 
 delete from progreso_secciones  ;
@@ -3406,6 +3410,10 @@ delete from participantes  ;
 delete from test_niveles  ;
 delete from test_secciones  ;
 delete from errores_test; 
+
+
+
+
 delete from test  ; 
 delete from respuestas  ;
 delete from extra_pregunta  ;
@@ -4064,14 +4072,15 @@ end;
 $function$
 ;
 
-select * from claves_preguntas_id(140);
+select * from claves_preguntas_id(143);
+
+select * from 
 
 
 
 
-
-
-
+select * from claves_preguntas cp where cp.id_clave in (5,6);
+select * from valor_preguntas vp where vp.id_clave in (5,6);
 
 
 
@@ -4223,6 +4232,8 @@ select * from valor_preguntas vp
 select * from fu_repuestas_con_valores1(141);
 
 select * from claves_preguntas cp 
+
+
 
 
 select * from tipos_preguntas tp 
@@ -4409,6 +4420,190 @@ $procedure$
 ;
 
 
+select * from claves_preguntas cp 
+
+
+---Anadir respeustas a clave valor 2 
+drop procedure SP_anadir_respuesta_dos_CLAVE_VALOR
+CREATE OR REPLACE PROCEDURE SP_anadir_respuesta_dos_CLAVE_VALOR(
+		p_id_pregunta int,
+		p_url_img varchar(500),
+		--datos de la clave valor
+		r_id_clave int,
+		r_valor character varying,
+		r_id_clave1 int,
+		r_valor1 character varying
+		)
+LANGUAGE plpgsql
+AS $procedure$
+declare 
+	p_id_respuesta_creada int;
+Begin
+	insert into respuestas(
+						id_pregunta,
+						opcion,
+						correcta
+						)values
+						(
+						 p_id_pregunta,
+						 p_url_img,
+						 true
+						);
+	--obtener el id de la respuesta creada ultima
+	select into p_id_respuesta_creada r.id_respuesta  from respuestas r where r.id_pregunta=id_pregunta
+	order by r.id_respuesta  desc limit 1;
+
+	--ingresar valor de la respuesta en la tabla valor xd
+	insert into valor_preguntas(id_respuesta,id_clave,valor)
+		values(p_id_respuesta_creada,r_id_clave,r_valor);
+	--ingresar el 2do valor clave 
+	insert into valor_preguntas(id_respuesta,id_clave,valor)
+		values(p_id_respuesta_creada,r_id_clave1,r_valor1);
+--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+select * from claves_preguntas cp 
+select * from respuestas r where r.id_pregunta=143
+select * from valor_preguntas vp where vp.id_respuesta=418
+
+select * from fu_repuestas_con_valores1(143)
+
+select * from fu_repuestas_con_valores2(143);
+select * from respuestas r where r.id_pregunta =143
+
+
+drop FUNCTION public.fu_repuestas_con_valores1(p_id_pregunta integer)
+
+CREATE OR REPLACE FUNCTION public.fu_repuestas_con_valores2(p_id_pregunta integer)
+ RETURNS TABLE(r_id_repuesta integer, r_opcion character varying, r_correcta boolean, r_estado boolean, r_eliminado boolean, r_valor character varying, r_valor2 character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	 select X.id_respuesta,X.opcion,X.correcta ,X.estado,X.eliminado,X.valor,X.valor2 from 
+	 (
+	 select r.id_respuesta as id_respuesta, 	
+	 		r.opcion as opcion, 
+	 		r.correcta as correcta, 
+	 		r.estado as estado, 
+	 		r.eliminado as eliminado, 
+	 		vp.valor as valor,  
+	 cast((select vp.valor from  valor_preguntas vp where vp.id_respuesta =  r.id_respuesta
+	 order by vp.id_valor desc limit 1)as character varying) as 
+	 		valor2,
+    ROW_NUMBER() OVER (PARTITION BY r.id_respuesta ORDER BY vp.id_valor asc) AS row_number
+	from respuestas r 
+	inner join valor_preguntas vp on r.id_respuesta = vp.id_respuesta 
+	where id_pregunta = p_id_pregunta order by vp.id_valor --asc limit 1;
+	)as X where X.row_number =1 ;
+		end;
+$function$
+;
+
+(
+	 select X.id_respuesta,X.opcion,X.correcta ,X.estado,X.eliminado,X.valor,X.valor2 from 
+	 (
+	 select r.id_respuesta as id_respuesta, 	
+	 		r.opcion as opcion, 
+	 		r.correcta as correcta, 
+	 		r.estado as estado, 
+	 		r.eliminado as eliminado, 
+	 		vp.valor as valor,  
+	 cast((select vp.valor from  valor_preguntas vp where vp.id_respuesta =  r.id_respuesta
+	 order by vp.id_valor desc limit 1)as character varying) as valor2,
+    ROW_NUMBER() OVER (PARTITION BY r.id_respuesta ORDER BY vp.id_valor asc) AS row_number
+	from respuestas r 
+	inner join valor_preguntas vp on r.id_respuesta = vp.id_respuesta 
+	where id_pregunta = 143 order by vp.id_valor --asc limit 1;
+	)as X where X.row_number =1 ;
+
+
+select * from valor_preguntas
+
+
+
+CREATE OR REPLACE PROCEDURE public.sp_registrar_respuesta_multiple_json_CLAVE_VALOR2
+(IN p_id_progreso_pregunta integer, IN p_respuesta json, IN p_tiempo_respuesta integer)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	--reemplazar el json para recorrerlo
+	p_p_respuesta JSON;
+	--variables del JSON
+
+	r_opcion character varying;
+	r_id_clave int;
+	r_id_clave1 int;
+	r_valor character varying;
+	r_valor1 character varying;
+	--seleccionado bool;
+	r_id_respuesta_creada int;
+begin
+	
+	
+	FOR p_p_respuesta IN SELECT * FROM json_array_elements(p_respuesta)
+    loop
+	    --varibales 
+       r_opcion := (p_p_respuesta ->> 'opcion')::varchar;
+	   r_id_clave := (p_p_respuesta ->> 'id_clave')::int;
+	   r_valor := (p_p_respuesta ->> 'r_valor')::varchar;
+	   r_id_clave1 := (p_p_respuesta ->> 'id_clave1')::int;
+	   r_valor1 := (p_p_respuesta ->> 'r_valor1')::varchar;
+	  		insert into progreso_respuestas(id_progreso_pregunta,
+	  										respuesta,
+	  										tiempo_respuesta)
+	  										values (
+	  										p_id_progreso_pregunta,
+	  										r_opcion,
+	  										p_tiempo_respuesta
+	  										);
+	  		--ahora buscar el id de la ultima respuesta insertada para insertar en clave valor el valor y el id_clave 
+			select into r_id_respuesta_creada  id_progreso_respuestas  from progreso_respuestas pr where pr.id_progreso_pregunta = id_progreso_pregunta order by id_progreso_respuestas desc limit 1;
+		--ahora insertar en clave valor 
+		insert into Clave_Valor_respuesta(
+											id_progreso_respuesta,
+											clave,
+											valor
+											)values(
+											r_id_respuesta_creada,
+											r_id_clave,
+											r_valor
+											);
+		--insertar el segundo clave valor 
+										insert into Clave_Valor_respuesta(
+											id_progreso_respuesta,
+											clave,
+											valor
+											)values(
+											r_id_respuesta_creada,
+											r_id_clave1,
+											r_valor1
+											);
+    end loop;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+
+
+;
+
+
+
+select * from clave_valor_respuesta 
+
+select * from progreso_respuestas pr 
 
 
 
@@ -4419,6 +4614,243 @@ $procedure$
 
 
 
+--select * from usuario u where correo_institucional =${'or '1' = '1 '} and contra =''
+
+
+
+select * from FU_SQL_Inyection1(cast('${'or '1' = '1 }', as varchar(500)),cast('${'or '1' = '1 }', as varchar(500)));
+--funcion para ver el funcionamiento del hacking etico con el metodo de SQL inyection 
+create or replace function FU_SQL_Inyection1(p_username varchar(500), p_contra varchar(500))
+returns table
+(
+	 r_result varchar(500)
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select case when COUNT(*)>0 then 'Verificado' else 'No autorizado' end  from usuario u where correo_institucional = p_username /*and contra =''*/;
+end;
+$BODY$
+
+
+select case when COUNT(*)>0 then 'Verificado' else 'No autorizado' end  
+from usuario u where correo_institucional = '${'or '1' = '1 }' and contra ='${'or '1' = '1 }'
+
+
+--crear el tipo de pregunta igual como MULTIMG pero este si tiene enunciado img con tiempo 
+select * from tipos_preguntas tp where tp.codigo ='MULTIMG';
+
+insert into tipos_preguntas (
+							titulo, 
+							descripcion,
+							opcion_multiple, --
+							enunciado_img, --
+							opciones_img,
+							tipo_pregunta_maestra,--
+							tiempo_enunciado,--
+							icono,
+							codigo,
+							clavevalor
+							) values (
+							'Opciones imagenes con temporizador',
+							'Opcion multiple con imagenes y tiempo para ver el enunciado',
+							true,
+							true,
+							true,--opciones img.
+							2,
+							true,
+							'clasicoimagenes',
+							'MULIMGT',
+							false
+							); 
+
+select * from tipos_preguntas tp 
+
+
+--anadir una culmnas a las preguntas que sea de tipo columnas xdxdxd para saber en cuantas columnas se va a dividir la pregunta
+alter table preguntas  
+add column columnas_pc int;
+
+alter table preguntas  
+add column columnas_movil int;
+
+select * from preguntas p; 
+
+update preguntas set columnas_pc=0, columnas_movil=0 
+
+--nueva funcion para crear preguntas con imagenen enunciado y el numero de columnas 
+-- DROP PROCEDURE public.sp_crear_pregunta_memrzar(varchar, int4, int4, int4, varchar, int4);
+
+CREATE OR REPLACE PROCEDURE public.sp_crear_pregunta_columnas(
+IN p_enunciado character varying, IN p_tiempos_segundos integer, IN p_tipo_pregunta integer, IN p_id_nivel integer, IN p_url_imagen character varying, IN p_tiempo_img integer, in p_columnas int )
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	p_id_pregunta_creada int;
+begin
+	if trim(p_enunciado)='' then
+			raise exception 'Enunciado no puede estar vacio';
+	end if;
+	--crear la pregunta
+	insert into preguntas(id_nivel,tiempos_segundos,enunciado,tipo_pregunta,error_detalle, columnas_pc,columnas_movil)
+				values 	 (p_id_nivel,p_tiempos_segundos,p_enunciado,p_tipo_pregunta,'No existen opciones de respuestas para la pregunta',p_columnas,p_columnas);
+	--ahora obtener el id de la pregunta creada
+	select into p_id_pregunta_creada id_pregunta from preguntas where enunciado = p_enunciado;
+
+	--ahora insertar el detalle de la pregunta en este caso es una imagen para el enunciado y el tiempo para poder verla
+	insert into extra_pregunta(id_pregunta, extra, tiempo_enunciado) 
+				values 		  (p_id_pregunta_creada,p_url_imagen,p_tiempo_img);
+	--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+select * from preguntas p 
+
+
+
+
+-- DROP FUNCTION public.fu_datos_pregunta_selcimg_id_pregunta(int4);
+
+CREATE OR REPLACE FUNCTION public.fu_datos_pregunta_selcimg_id_pregunta(p_id_pregunta integer)
+ RETURNS TABLE(r_id_pregunta integer, r_enunciado character varying, r_tiempo_segundo integer, r_columnas_pc integer, r_columnas_movil integer)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select p.id_pregunta, p.enunciado, p.tiempos_segundos,p.columnas_pc, p.columnas_movil  from preguntas p  
+		inner join tipos_preguntas tp on p.tipo_pregunta = tp.id_tipo_pregunta
+		where p.id_pregunta =p_id_pregunta /*and tp.codigo ='SELCIMG'*/ order by p.fecha_creacion desc limit 1;
+	end;
+$function$
+;
+
+
+
+-- DROP FUNCTION public.fu_datos_pregunta_selcimg(int4);
+
+CREATE OR REPLACE FUNCTION public.fu_datos_pregunta_selcimg(p_id_nivel integer)
+ RETURNS TABLE(r_id_pregunta integer, r_enunciado character varying, r_columnas_pc integer, r_columnas_movil integer)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select p.id_pregunta, p.enunciado, p.columnas_pc, p.columnas_movil  from preguntas p  
+		inner join tipos_preguntas tp on p.tipo_pregunta = tp.id_tipo_pregunta
+		where p.id_nivel =p_id_nivel /*and tp.codigo ='SELCIMG'*/ order by p.fecha_creacion desc limit 1 ;
+	end;
+$function$
+;
+
+
+select * from progreso_preguntas pp 
+inner join preguntas p on pp.id_pregunta = p.id_pregunta 
+
+
+
+-- DROP FUNCTION public.fu_datos_pregunta_memrzar_id_pregunta(int4);
+select * from preguntas p 
+select * from fu_datos_pregunta_memrzar_id_pregunta(146)
+
+CREATE OR REPLACE FUNCTION public.fu_datos_pregunta_memrzar_id_pregunta(p_id_pregunta integer)
+ RETURNS TABLE(r_id_pregunta integer, r_enunciado character varying, r_extra character varying, r_tiempo_respuesta integer, r_tiempo_enunciado integer, 
+ r_columnas_pc integer, r_columnas_movil integer)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select p.id_pregunta, p.enunciado, ep.extra, p.tiempos_segundos, ep.tiempo_enunciado, p.columnas_pc, p.columnas_movil   from preguntas p 
+		inner join extra_pregunta ep on p.id_pregunta  =ep.id_pregunta  
+		where p.id_pregunta =p_id_pregunta order by p.fecha_creacion desc limit 1;
+	end;
+$function$
+;
+
+
+select * from progreso_secciones ps ;
+select * from progreso_preguntas pp ;
+
+select * from progreso_respuestas pr 
+
+
+--arreglar la funcion que retorna los niveles validos de una seccion que se renderiza en el componente donde se agrega una seccion al formulario 
+select * from secciones s ;
+
+select * from FU_numeros_preguntas_validad_seccion(58);
+--esta funcion devuelve numeros randoms xd 
+-- DROP FUNCTION public.fu_numeros_preguntas_validad_seccion(int4);
+
+CREATE OR REPLACE FUNCTION public.fu_numeros_preguntas_validad_seccion(p_id_seccion integer)
+ RETURNS TABLE(r_id_nivel integer, r_id_seccion integer, r_nivel character varying, r_total_preguntas integer)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select  X.id_nivel_,p_id_seccion ,cast(CONCAT('Nivel ', CAST(X.nivel_ AS VARCHAR)) as varchar(100)),cast(Count(distinct p.id_pregunta)as int) from 
+	(select n.nivel as nivel_, n.id_nivel as id_nivel_
+	from preguntas pp 
+	inner join niveles n ON n.id_nivel = pp.id_nivel 
+	where n.id_seccion =p_id_seccion
+	group by n.nivel, n.id_nivel order by n.nivel asc) as X 
+	inner join preguntas p on X.id_nivel_= p.id_nivel
+	inner join respuestas r on p.id_pregunta =r.id_pregunta
+	group by X.nivel_, X.id_nivel_;
+	--antiguo
+	/*
+	SELECT
+    n.id_nivel,
+    n.id_seccion,
+    cast(CONCAT('Nivel ', CAST(n.nivel AS VARCHAR)) as varchar(100)) AS nivel,
+    cast(COUNT(p.id_nivel)as int) AS total_preguntas
+	FROM
+    niveles n
+	LEFT JOIN
+    preguntas p ON n.id_nivel = p.id_nivel
+    LEFT join
+    respuestas r on p.id_pregunta = r.id_pregunta 
+	WHERE
+    n.id_seccion = 58
+    and r.correcta 
+	GROUP BY
+    n.id_nivel, n.id_seccion, n.nivel, r.id_pregunta 
+	ORDER BY
+    n.id_nivel;
+   */
+end;
+$function$
+;
+
+
+select n.nivel, n.id_nivel, (
+								select COUNT( distinct p.id_pregunta ) from preguntas p
+								inner join respuestas r on p.id_pregunta = r.id_pregunta 
+								where p.id_nivel =  pp.id_nivel  and r.correcta ) as numero_pregunta
+from preguntas pp 
+inner join niveles n ON n.id_nivel = pp.id_nivel 
+where n.id_seccion =54
+group by n.nivel, n.id_nivel order by n.nivel asc;
+
+
+
+
+
+select COUNT( distinct p.id_pregunta ) from preguntas p
+inner join respuestas r on p.id_pregunta = r.id_pregunta 
+where p.id_nivel =  X.id_nivel_  and r.correcta ) as numero_pregunta
+
+
+
+select * from secciones s 
+
+--id_nivel, id_seccion, nivel concantenado Nivel + total preguntas 
 
 
 
@@ -4426,33 +4858,125 @@ $procedure$
 
 
 
+select * from preguntas p 
 
 
 
 
+select COUNT( distinct p.id_pregunta ) from preguntas p
+inner join respuestas r on p.id_pregunta = r.id_pregunta 
+where p.id_nivel = 35 and r.correcta ;
 
 
 
 
+select * from secciones s where s.id_seccion =54
+
+select * from test_niveles tn 
+
+select * from test_secciones ts 
 
 
+--arreglar esta funcion porque sale como completado cuando hay preguntas con multiples respuestas xd 
+-- DROP FUNCTION public.fu_tr_reponder_progreso_respuestas();
+
+CREATE OR REPLACE FUNCTION public.fu_tr_reponder_progreso_respuestas()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	p_id_progreso_seccion int;
+	p_completo bool;
+	p_porcentaje int;
+begin
+	--primero obtener el id seccion que es unico para cada participante_test 
+	--new.id_progreso_pregunta =5 -->ejemplo
+	select into p_id_progreso_seccion pp.id_progreso_seccion  from progreso_preguntas pp where pp.id_progreso_preguntas=new.id_progreso_pregunta;
+
+	--hacer la comparacion para obtener el booleano 
+    /*
+	select into p_completo case when COUNT(*)>=(select COUNT(*) from progreso_preguntas pp where pp.id_progreso_seccion =p_id_progreso_seccion) then true else false end 
+	as Completado
+	from progreso_respuestas pr inner join progreso_preguntas pp on pr.id_progreso_pregunta = pp.id_progreso_preguntas 
+	where pp.id_progreso_seccion =p_id_progreso_seccion;
+	*/
+	--obtener el porcentaje 
+	SELECT 
+  (COUNT(distinct pr.id_progreso_pregunta) * 100) / NULLIF((SELECT COUNT(*) FROM progreso_preguntas pp WHERE pp.id_progreso_seccion = p_id_progreso_seccion), 0) AS PorcentajeCompletado,
+  CASE WHEN (COUNT(distinct pr.id_progreso_pregunta) * 100) / NULLIF((SELECT COUNT(*) FROM progreso_preguntas pp WHERE pp.id_progreso_seccion = p_id_progreso_seccion), 0) = 100 THEN true ELSE false END AS Verificado  
+INTO 
+  p_porcentaje,
+  p_completo
+	FROM
+  	progreso_respuestas pr
+	INNER JOIN
+  	progreso_preguntas pp ON pr.id_progreso_pregunta = pp.id_progreso_preguntas
+	WHERE
+  	pp.id_progreso_seccion = p_id_progreso_seccion;
+  
+  	--si el porcentaje es 100 entonces es completado 
+  
+	--actualizar el registro
+	update progreso_secciones set estado_completado=p_completo,porcentaje=p_porcentaje where id_progreso_seccion=p_id_progreso_seccion;
+
+return new;
+end
+$function$
+;
+select * from progreso_secciones ps ;
+select * from progreso_preguntas pp ;
+select * from progreso_respuestas pr ;
+
+select 
+  	(COUNT(distinct pr.id_progreso_pregunta) * 100) / NULLIF((SELECT COUNT(*) FROM progreso_preguntas pp WHERE pp.id_progreso_seccion = 36), 0) AS PorcentajeCompletado,
+  	case when (COUNT(distinct pr.id_progreso_pregunta) * 100) / NULLIF((SELECT COUNT(*) FROM progreso_preguntas pp WHERE pp.id_progreso_seccion = 36), 0)=100  then true else false end as Verificado  
+	FROM
+  	progreso_respuestas pr
+	INNER JOIN
+  	progreso_preguntas pp ON pr.id_progreso_pregunta = pp.id_progreso_preguntas
+	WHERE
+  	pp.id_progreso_seccion = 36;
+  
+  
+ /*
+  * AGREGAR COLUMNAS A LA TABLA DEL PERFIL QUE PERMITAN GUARDAR LA INTERFAZ XD SKERE MODO DIABLO 
+  * sidenavColor: "dark",
+    sidenavType: "white",
+    transparentNavbar: false,
+    fixedNavbar: true,
+  * */
+  
+  
+ select * from usuario u 
+ --crear una tabla que permita guardar los cambios de la interfaz xd 
+ CREATE TABLE interfaz_usuario (
+    ID_User uuid PRIMARY KEY,
+    sidenavColor character varying not null default 'dark',
+    sidenavType character varying not null default 'white',
+    transparentNavbar bool not null default false,
+    fixedNavbar bool not null default true,
+    -- Definir la clave foránea
+    FOREIGN KEY (ID_User) REFERENCES usuario (ID_User)
+);
+
+insert into interfaz_usuario(ID_User)values('3b43792d-ec18-49a5-b8af-753c65cb9b21');
+select * from interfaz_usuario
 
 
+select * from FU_interfaz_usuario('3b43792d-ec18-49a5-b8af-753c65cb9b21');
 
 
+drop FUNCTION public.FU_interfaz_usuario(p_id_user character varying)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+--funcion que retorne las caracteristicas de la interfaz mediante el id del suaurio casteado xd 
+CREATE OR REPLACE FUNCTION public.FU_interfaz_usuario(p_id_user character varying)
+ RETURNS TABLE(sidenavColor character varying, sidenavType character varying ,transparentNavbar  bool,fixedNavbar bool)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select iu.sidenavColor,iu.sidenavType, iu.transparentNavbar, iu.fixedNavbar from interfaz_usuario iu where cast(iu.ID_User as character varying) = p_id_user;
+end;
+$function$
+;
