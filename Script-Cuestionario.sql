@@ -4980,3 +4980,51 @@ begin
 end;
 $function$
 ;
+
+
+
+select * from secciones s 
+
+select * from niveles n where n.id_seccion =54
+
+select * from preguntas p where p.id_nivel =35
+
+
+select * from preguntas p where p.id_pregunta = 145 
+select * from tipos_preguntas tp where tp.id_tipo_pregunta = 9
+
+
+select * from claves_preguntas cp where cp.id_pregunta =145
+select * from valor_preguntas vp
+
+
+select * from respuestas r 
+inner join valor_preguntas vp on r.id_respuesta =vp.id_respuesta
+where r.id_pregunta =145
+
+delete from valor_preguntas where id_respuesta in (424,425,426,427,428,429)
+delete from  preguntas  where id_pregunta =145
+
+delete from  extra_pregunta  where id_pregunta =145
+
+
+
+
+-- DROP FUNCTION public.fu_datos_pregunta_selcimg_id_pregunta(int4);
+
+CREATE OR REPLACE FUNCTION public.fu_datos_pregunta_selcimg_id_pregunta(p_id_pregunta integer)
+ RETURNS TABLE(r_id_pregunta integer, r_enunciado character varying, r_tiempo_segundo integer, r_columnas_pc integer, r_columnas_movil integer)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select p.id_pregunta, p.enunciado, p.tiempos_segundos,p.columnas_pc, p.columnas_movil  from preguntas p  
+		inner join tipos_preguntas tp on p.tipo_pregunta = tp.id_tipo_pregunta
+		where p.id_pregunta =147 /*and tp.codigo ='SELCIMG'*/ order by p.fecha_creacion desc limit 1;
+	end;
+$function$
+;
+
+
+select * from interfaz_usuario iu 
+
