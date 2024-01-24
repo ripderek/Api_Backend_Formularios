@@ -5028,3 +5028,13 @@ $function$
 
 select * from interfaz_usuario iu 
 
+
+select * from test t 
+
+select * from secciones s ;
+
+
+select * from usuario u ;
+select * from secciones_usuario su ;
+
+
