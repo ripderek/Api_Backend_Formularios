@@ -98,6 +98,28 @@ const datos_formulario_token = async (req, res, next) => {
         return res.status(404).json({ message: error.message });
     }
 }
+//preguntas de un formulario 
+const preguntas_formulario = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('select * from preguntas_de_un_test($1)', [id]);
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
+//estadistica_por_pregunta
+const grafica1 = async (req, res, next) => {
+    try {
+        console.log("Qui para buscar las preguntas");
+        const { id, id2 } = req.params;
+        const result = await pool.query('select * from estadistica_por_pregunta($1,$2)', [id, id2]);
+        console.log(result.rows);
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
 //crear una funcion para registrar al participante en el test 
 //ingresar_participante_test
 const ingreso_participante_test = async (req, res, next) => {
@@ -290,5 +312,7 @@ module.exports = {
     mas_preguntas,
     registrar_respuestas_multiples,
     registrar_respuestas_CLAVE_VALOR1,
-    registrar_respuestas_CLAVE_VALOR2
+    registrar_respuestas_CLAVE_VALOR2,
+    preguntas_formulario,
+    grafica1
 };

@@ -5038,3 +5038,107 @@ select * from usuario u ;
 select * from secciones_usuario su ;
 
 
+
+
+INSERT INTO MovRcfgRutas(CodAgen,CodRuta,CodZona,Descripcion,Estado)VALUES (19,2003,2000,'OLMEDO - CAYAMBE',True); select * fromMovRcfgRutas where CodRuta = 2003;
+
+
+select * from progreso_respuestas pr ;
+
+select * from test t ;
+--124 
+select * from participantes_test pt where pt.id_test =124
+--102
+--103
+select * from progreso_secciones ps where id_participante_test = 102;
+
+delete 
+--select * 
+from niveles n where n.id_seccion =56 and nivel=2;
+select * from secciones s ;
+
+
+
+--listar las pregutnas de un test 
+--select * from test t;
+
+
+--funccion que retorne todas las preguntas de un test 
+CREATE OR REPLACE FUNCTION public.preguntas_de_un_test(p_id_test int)
+ RETURNS TABLE(r_id_pregunta integer, r_enunciado character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+				return query
+	select p.id_pregunta,p.enunciado from test_secciones ts 
+	inner join secciones s on ts.id_seccion = s.id_seccion 
+	inner join niveles n on n.id_seccion = s.id_seccion 
+	inner join preguntas p on n.id_nivel = p.id_nivel 
+	where ts.id_test =p_id_test;	
+end;
+$function$
+;
+
+select * from preguntas_de_un_test(127)
+
+
+
+
+select * from progreso_preguntas pp;
+select * from preguntas p;
+
+
+
+
+select  r.opcion, (select Count(*) from participantes_test pt 
+inner join progreso_secciones ps on pt.id_participante_test =ps.id_participante_test  
+inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
+inner join progreso_respuestas pr on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
+where pt.id_test =127 and pp.id_pregunta=151 and pr.respuesta = r.opcion)   -- contar cuantas hay en respondidas segun el test 
+as Num
+from preguntas p 
+inner join respuestas r on p.id_pregunta =r.id_pregunta
+where p.id_pregunta =147
+;
+
+select * from progreso_respuestas pr; 
+
+
+
+
+
+select Count(*) from participantes_test pt 
+inner join progreso_secciones ps on pt.id_participante_test =ps.id_participante_test  
+inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
+inner join progreso_respuestas pr on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
+where pt.id_test =127 and pp.id_pregunta=151 and pr.respuesta =;
+
+
+select * from estadistica_por_pregunta(151,127)
+--drop FUNCTION public.estadistica_por_pregunta(p_id_pregunta integer, p_id_test integer)
+
+
+CREATE OR REPLACE FUNCTION public.estadistica_por_pregunta(p_id_pregunta integer, p_id_test integer)
+ RETURNS TABLE(r_opcion character varying, cantidad integer)
+ LANGUAGE plpgsql
+AS $function$
+begin
+			return query
+		select  r.opcion,  cast ((select Count(*) from participantes_test pt 
+inner join progreso_secciones ps on pt.id_participante_test =ps.id_participante_test  
+inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
+inner join progreso_respuestas pr on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
+where pt.id_test =p_id_test and pp.id_pregunta=p_id_pregunta and pr.respuesta = r.opcion)as int)   -- contar cuantas hay en respondidas segun el test 
+as Num
+from preguntas p 
+inner join respuestas r on p.id_pregunta =r.id_pregunta
+where p.id_pregunta =p_id_pregunta;
+end;
+$function$
+;
+
+
+select * from respuestas r 
+
+delete from respuestas where id_respuesta = 573
+
