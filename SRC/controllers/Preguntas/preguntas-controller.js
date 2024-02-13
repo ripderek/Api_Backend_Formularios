@@ -224,6 +224,16 @@ const MEMRZAR_dato_pregunta = async (req, res, next) => {
         return res.status(404).json({ message: error.message });
     }
 }
+//funcion para retornar la data de una respuesta 
+const respuesta_data_id = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('select * from data_respuesta_id($1)', [id]);
+        return res.status(200).json(result.rows[0]);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
 //funcion que devuelve los datos de una pregunta de tipo MEMRZAR segun el id de la pregunta
 const MEMRZAR_dato_pregunta_id_pregunta = async (req, res, next) => {
     try {
@@ -414,6 +424,50 @@ const Claves_Preguntas = async (req, res, next) => {
         return res.status(404).json({ message: error.message });
     }
 }
+const eliminar_pregunta = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('call SP_Eliminar_Pregunta($1)', [id]);
+        return res.status(200).json({ message: "Se elimino la pregunta" });
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
+//eliminar respuesta  SP_Eliminar_Respuesta
+const eliminar_respuesta = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('call SP_Eliminar_Respuesta($1)', [id]);
+        return res.status(200).json({ message: "Se elimino la respuesta" });
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
+//SP_Editar_pregunta_SELCCMA
+const SP_Editar_pregunta_SELCCMA = async (req, res, next) => {
+    try {
+        const { r_enunciado, r_id_pregunta } = req.body;
+        const result = await pool.query('call SP_Editar_pregunta_SELCCMA($1,$2)', [r_id_pregunta, r_enunciado]);
+        return res.status(200).json({ message: "Se edito la pregunta" });
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
+//SP_Editar_respuesta_SELCCMA
+const SP_Editar_respuesta_SELCCMA = async (req, res, next) => {
+    try {
+        const { r_opcion, r_id_respuesta } = req.body;
+        const result = await pool.query('call SP_Editar_respuesta_SELCCMA($1,$2)', [r_id_respuesta, r_opcion]);
+        return res.status(200).json({ message: "Se edito la pregunta" });
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
+
 //Crear Repuesta Con una clave Valor 
 //SP_anadir_respuesta_una_CLAVE_VALOR
 const crear_respuesta_CLAVE_VALOR = async (req, res, next) => {
@@ -482,5 +536,10 @@ module.exports = {
     SP_crear_pregunta_clave_valor_OPCLAV2_no_json,
     crear_respuesta_CLAVE_VALOR_2,
     opciones_respuestas_2_CLAVE_VALOR,
-    crear_pregunta_columnas
+    crear_pregunta_columnas,
+    eliminar_pregunta,
+    eliminar_respuesta,
+    SP_Editar_pregunta_SELCCMA,
+    respuesta_data_id,
+    SP_Editar_respuesta_SELCCMA
 };

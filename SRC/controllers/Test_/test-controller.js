@@ -3,9 +3,9 @@ const pool = require('../../db');
 //funcion para crear un test
 const crear_test = async (req, res, next) => {
     try {
-        const { p_Titulo, p_Fecha_hora_cierre, p_Fecha_hora_inicio, p_ID_User_crea, p_Descripcion, p_Ingresos_Permitidos } = req.body;
-        const result = await pool.query('call sp_insertar_test($1,$2,$3,$4,$5,$6)',
-            [p_Titulo, p_Fecha_hora_cierre, p_Fecha_hora_inicio, p_ID_User_crea, p_Descripcion, p_Ingresos_Permitidos]);
+        const { p_Titulo, p_Fecha_hora_cierre, p_Fecha_hora_inicio, p_ID_User_crea, p_Descripcion, p_Ingresos_Permitidos, p_cualquier_entrar, p_aleatoria } = req.body;
+        const result = await pool.query('call sp_insertar_test($1,$2,$3,$4,$5,$6,$7,$8)',
+            [p_Titulo, p_Fecha_hora_cierre, p_Fecha_hora_inicio, p_ID_User_crea, p_Descripcion, p_Ingresos_Permitidos, p_cualquier_entrar, p_aleatoria]);
         return res.status(200).json({ message: "Se creó el test" });
         //return res.status(200).json(result.rows);
     } catch (error) {
@@ -178,6 +178,20 @@ const agregar_seccion_test = async (req, res, next) => {
         return res.status(404).json({ error: error.message });
     }
 }
+//funcion para eliminar un test mediante el id del test 
+const eliminar_test = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('call SP_Eliminar_Test($1)',
+            [id]);
+        return res.status(200).json({ message: "Se ha eliminado el test" });
+        //return res.status(200).json(result.rows);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ error: error.message });
+    }
+}
+
 //funcion que devuelve el progreso 
 const progreso_secciones_participante = async (req, res, next) => {
     try {
@@ -314,5 +328,6 @@ module.exports = {
     registrar_respuestas_CLAVE_VALOR1,
     registrar_respuestas_CLAVE_VALOR2,
     preguntas_formulario,
-    grafica1
+    grafica1,
+    eliminar_test
 };

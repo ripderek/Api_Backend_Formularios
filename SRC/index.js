@@ -26,7 +26,8 @@ const app = express();
 
 const PORT = 4099;
 
-const corsOptions = { credentials: true, origin: "http://localhost:3000" };
+//https://encuesta.uteq.edu.ec:8000
+const corsOptions = { credentials: true, origin: ["https://encuesta.uteq.edu.ec:8000", "http://localhost:3000"] };
 //const corsOptions = { credentials: true, origin: "http://26.101.205.106:3000" };
 
 //config del server

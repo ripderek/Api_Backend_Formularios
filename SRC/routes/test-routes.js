@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const router = Router();
-const { crear_test, test_usuario, errores_test, test_detalle_id, participantes_test, lista_participantes, lista_participantes_busqueda, datos_formulario_token, ingreso_participante_test, verificacion_ingreso_participante, secciones_test, agregar_seccion_test, progreso_secciones_participante, datos_token_id_test, progreso_seccion_siguiente_pregunta, registrar_respuesta_unica, mas_preguntas, registrar_respuestas_multiples, registrar_respuestas_CLAVE_VALOR1, registrar_respuestas_CLAVE_VALOR2, preguntas_formulario, grafica1 } = require('../controllers/Test_/test-controller');
+const { crear_test, test_usuario, errores_test, test_detalle_id, participantes_test, lista_participantes, lista_participantes_busqueda, datos_formulario_token, ingreso_participante_test, verificacion_ingreso_participante, secciones_test, agregar_seccion_test, progreso_secciones_participante, datos_token_id_test, progreso_seccion_siguiente_pregunta, registrar_respuesta_unica, mas_preguntas, registrar_respuestas_multiples, registrar_respuestas_CLAVE_VALOR1, registrar_respuestas_CLAVE_VALOR2, preguntas_formulario, grafica1, eliminar_test } = require('../controllers/Test_/test-controller');
 
 //router.post('/Login', verificaUser);
 router.post('/Crear_Test', crear_test);
@@ -32,6 +32,8 @@ router.post('/RegistrarRespuestasCLAVEVALOR2', registrar_respuestas_CLAVE_VALOR2
 router.get('/DatosFormulario/:token', datos_formulario_token);
 //preguntas_formulario
 router.get('/PreguntasFormularios/:id', preguntas_formulario);
+//borrar 
+router.post('/EliminarTest/:id', eliminar_test);
 //grafica1
 router.get('/PreguntasFormulariosGrafica/:id/:id2', grafica1);
 
