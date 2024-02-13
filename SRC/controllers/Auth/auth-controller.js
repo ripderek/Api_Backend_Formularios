@@ -1,5 +1,10 @@
 const pool = require('../../db');
 const jwt = require('jsonwebtoken');
+//const { publicIp, publicIpv4, publicIpv6 } = require('public-ip');
+const { publicIpv4 } = require('public-ip');
+
+//const publicIp = require('public-ip');
+
 const { serialize } = require('cookie');
 
 //funcion para verificar la conexion a la bd
@@ -10,6 +15,20 @@ const prueba_conexion = async (req, res, next) => {
         return res.status(200).json(users.rows[0]);
     } catch (error) {
         next(error);
+    }
+}
+const obtenerIPV4 = async (req, res, next) => {
+    try {
+        try {
+            const ipAddress = await publicIpv4();
+            return res.status(200).json({ ip: ipAddress });
+        } catch (error) {
+            console.error('Error al obtener la IP:', error);
+            return res.status(500).json({ error: 'Error al obtener la IP' });
+        }
+    } catch (error) {
+        console.error('Error al importar public-ip:', error);
+        return res.status(500).json({ error: 'Error al importar public-ip' });
     }
 }
 
@@ -240,4 +259,5 @@ module.exports = {
     verificaUserGoogle,
     datos_formulario_token,
     login_register_participante
+    , obtenerIPV4
 };

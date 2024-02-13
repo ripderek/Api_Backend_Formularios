@@ -3412,8 +3412,6 @@ delete from test_secciones  ;
 delete from errores_test; 
 
 
-
-
 delete from test  ; 
 delete from respuestas  ;
 delete from extra_pregunta  ;
@@ -5141,4 +5139,927 @@ $function$
 select * from respuestas r 
 
 delete from respuestas where id_respuesta = 573
+
+select * from participantes_test pt ;
+
+
+
+
+
+select p.id_pregunta , p.id_nivel ,ROW_NUMBER() OVER (ORDER BY p.id_pregunta) AS numero_de_fila, p.enunciado
+				--INTO p_id_pregunta_seleccionada , p_id_nivel 
+				from preguntas p 
+                inner join niveles n on p.id_nivel = n.id_nivel
+                inner join secciones s on n.id_seccion = s.id_seccion
+                inner join respuestas r on p.id_pregunta =r.id_pregunta 
+                where s.id_seccion = 60 and n.nivel = 1 --and r.correcta
+                group by p.id_pregunta
+                
+                
+                
+  select * from secciones s;
+ 
+
+
+/*
+ RESPALDO DEL CURSOR QUE TENIA LA BD DEL SERVER 
+ 
+ -- DROP FUNCTION public.fu_cursor_generar_preguntas_participante(varchar, int4);
+
+CREATE OR REPLACE FUNCTION public.fu_cursor_generar_preguntas_participante(p_token_test character varying, p_id_participante_test integer)
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+ 	p_id_seccion int;
+ 	p_id_progreso_seccion int;
+ 	p_cantidad_niveles int;
+ 	p_numero_preguntas int;
+  	i INT;
+    contador INT := 1;
+   	p_id_pregunta_seleccionada int;
+   	p_id_nivel int;
+ 	--consulta que devuelve las secciones de un test
+    curCopiar cursor for 
+    			select ps.id_progreso_seccion, ps.id_seccion,ts.cantidad_niveles,ts.numero_preguntas  from progreso_secciones ps 
+				inner join test_secciones ts on ps.id_seccion = ts.id_seccion
+				inner join test t on ts.id_test = t.id_test
+				where ps.id_participante_test = p_id_participante_test 
+				and cast(t.tokens as character varying)= p_token_test;
+begin
+	--/Antes de Abrir el cursor se pueden declarar cosas, como por ejemplo crear un nuevo registro/
+	--
+   open curCopiar;
+	fetch next from curCopiar INTO p_id_progreso_seccion, p_id_seccion, p_cantidad_niveles, p_numero_preguntas;
+	while (Found) loop	
+		
+		--/[AQUI VA TODO LO QUE SE QUIERE REALIZAR CON EL CURSOR]/
+		--
+		--p_id_progreso_seccion
+		--p_id_seccion
+		--p_cantidad_niveles
+		--p_numero_preguntas
+			
+		--un for que recorra los niveles de la tabla de la consulta de arriba
+		
+		FOR i IN 1..p_cantidad_niveles LOOP
+		
+			--otro for dentro que recorra las preguntas de esa seccion y de ese nivel
+			--Hacer que recora el 
+			
+			WHILE contador <= p_numero_preguntas LOOP
+				
+				--de esas preguntas que seleccione una aleatoria dependiendo de la cantidad de "numero_preguntas" a seleccionar
+				--DEMANERA ALEATORIA 
+				
+				select p.id_pregunta , p.id_nivel 
+				INTO p_id_pregunta_seleccionada , p_id_nivel from preguntas p 
+                inner join niveles n on p.id_nivel = n.id_nivel
+                inner join secciones s on n.id_seccion = s.id_seccion
+                inner join respuestas r on p.id_pregunta =r.id_pregunta 
+                where s.id_seccion = p_id_seccion and n.nivel = i and r.correcta
+                ORDER BY random()
+				LIMIT 1;  
+				
+				--DE MANERA SECUENCIAL 
+				/*
+				select X.IDPRE, X.PNIVEL
+				INTO p_id_pregunta_seleccionada , p_id_nivel 
+				from 
+				(select p.id_pregunta as IDPRE , p.id_nivel as PNIVEL ,ROW_NUMBER() OVER (ORDER BY p.id_pregunta) AS numero_de_fila, p.enunciado
+				--INTO p_id_pregunta_seleccionada , p_id_nivel 
+				from preguntas p 
+				inner join niveles n on p.id_nivel = n.id_nivel
+				inner join secciones s on n.id_seccion = s.id_seccion
+				inner join respuestas r on p.id_pregunta =r.id_pregunta 
+				where s.id_seccion = 60 and n.nivel = 1 --and r.correcta
+				group by p.id_pregunta) as X
+				where numero_de_fila=contador;
+				*/
+			
+                --Validar si el id_pregunta ya esta ingresado en la tabla progreso_preguntas
+				--si la pregunta ya se encuentra registrada, volver a escoger otra pregunta, repetir bucle
+				--id_progreso_seccion
+				--id_pregunta
+				--verificar que las preguntas no se repitan con id	
+  
+            	-- Validar pregunta repetida
+                IF NOT EXISTS (
+	                SELECT 1 FROM progreso_preguntas pr 
+					inner join progreso_secciones ps on pr.id_progreso_seccion  =  ps.id_progreso_seccion
+					inner join preguntas p on pr.id_pregunta = p.id_pregunta 
+					WHERE pr.id_pregunta = p_id_pregunta_seleccionada
+					AND pr.id_progreso_seccion = p_id_progreso_seccion
+					and p.id_nivel = p_id_nivel
+					and ps.id_participante_test = p_id_participante_test
+                ) THEN
+
+                	--si la pregunta no se encuentra registrada entonces ingresarla a la tabla progreso_preguntas
+					--id_progreso_seccion
+					--id_pregunta
+                    INSERT INTO progreso_preguntas (id_progreso_seccion, id_pregunta)
+                    VALUES (p_id_progreso_seccion, p_id_pregunta_seleccionada);
+                   	
+                   --Incrementar el contador, si se registra la pregunta no esta repetida
+                   contador := contador + 1;
+                   
+                ELSE
+                    -- Si la pregunta ya está registrada, no incrementa el contador del bucle
+
+                END IF;
+				
+			END LOOP;
+		contador := 1;
+			
+		END LOOP;
+			
+	--cerrar el cursor 
+	FETCH NEXT FROM curCopiar INTO p_id_progreso_seccion, p_id_seccion, p_cantidad_niveles, p_numero_preguntas;
+	--fetch curCopiar INTO p_id_progreso_seccion, p_id_seccion, p_cantidad_niveles, p_numero_preguntas;
+	end loop;
+	close curCopiar;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en el cursor: %', SQLERRM;
+END;
+$function$
+;
+
+ **/
+
+--RESPALDO DE INGRESAR PARTICIPANTE 
+/*
+ -- DROP PROCEDURE public.ingresar_participante_test(varchar, varchar, varchar, varchar, varchar);
+
+CREATE OR REPLACE PROCEDURE public.ingresar_participante_test(IN p_token_id_participante character varying, IN p_token_id_test character varying, IN p_facultad character varying, IN p_carrera character varying, IN p_semestre character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	p_ID_Test int;
+	p_Id_participante_test int;
+begin
+	--primero obtener el id test mediante el token para ingresar al usuario al test 
+	select into p_ID_Test t.id_test from test t where cast(t.tokens as character varying) = p_token_id_test;
+	--ingresar el usuario con ese id test obtenido xd 
+	insert into participantes_test(id_participante, id_test) values (cast(p_token_id_participante as UUID), p_ID_Test);
+	--obtener el id del registro de la tabla anterior xd 
+	select into p_Id_participante_test id_participante_test from participantes_test where cast(id_participante as character varying) =p_token_id_participante and id_test = p_ID_Test;
+
+
+	insert into Datos_Participante_Test(
+						id_participante_test,
+						facultad,
+						carrera,
+						semestre
+						)values
+						(
+						 p_Id_participante_test,
+						 p_facultad,
+						 p_carrera,
+						 cast(p_semestre as int)
+						);
+	--llamar al cursor para que se encargue de registrar las secciones
+	PERFORM FU_Cursor_generar_seccion_participante(p_token_id_test,p_Id_participante_test);
+	--llamar al generador de preguntas
+	perform FU_Cursor_generar_preguntas_participante(p_token_id_test,p_Id_participante_test);
+	
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+ * */
+select * from participantes_test pt;
+/*
+p_carrera: "Software"
+p_facultad: "Ciencias de la Ingeniería"
+p_semestre: "7"
+p_token_id_participante: "9453f1e2-9feb-4f11-b084-591e350714f0"
+p_token_id_test: "6628847f-60d2-4eb7-94b3-2aaa56fd28be"
+ */
+call ingresar_participante_test('9453f1e2-9feb-4f11-b084-591e350714f0','6628847f-60d2-4eb7-94b3-2aaa56fd28be','Ciencias de la Ingeniería','Software','7');
+select * from Datos_Participante_Test
+
+-- DROP PROCEDURE public.ingresar_participante_test(varchar, varchar, varchar, varchar, varchar);
+
+
+CREATE OR REPLACE PROCEDURE public.ingresar_participante_test(IN p_token_id_participante character varying, IN p_token_id_test character varying, IN p_facultad character varying, IN p_carrera character varying, IN p_semestre character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	p_ID_Test int;
+	p_Id_participante_test int;
+begin
+	--primero obtener el id test mediante el token para ingresar al usuario al test 
+	select into p_ID_Test t.id_test from test t where cast(t.tokens as character varying) = p_token_id_test;
+	--ingresar el usuario con ese id test obtenido xd 
+	insert into participantes_test(id_participante, id_test) values (cast(p_token_id_participante as UUID), p_ID_Test);
+	--obtener el id del registro de la tabla anterior xd 
+	select into p_Id_participante_test id_participante_test from participantes_test where cast(id_participante as character varying) =p_token_id_participante and id_test = p_ID_Test limit 1;
+
+
+	insert into Datos_Participante_Test(
+						id_participante_test,
+						facultad,
+						carrera,
+						semestre
+						)values
+						(
+						 p_Id_participante_test,
+						 p_facultad,
+						 p_carrera,
+						 cast(p_semestre as int)
+						);
+	--llamar al cursor para que se encargue de registrar las secciones
+	PERFORM FU_Cursor_generar_seccion_participante(p_token_id_test,p_Id_participante_test);
+	--llamar al generador de preguntas
+	perform FU_Cursor_generar_preguntas_participante(p_token_id_test,p_Id_participante_test);
+	
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+/*
+ 
+ */
+
+-- DROP FUNCTION public.fu_cursor_generar_preguntas_participante(varchar, int4);
+
+CREATE OR REPLACE FUNCTION public.fu_cursor_generar_preguntas_participante(p_token_test character varying, p_id_participante_test integer)
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+ 	p_id_seccion int;
+ 	p_id_progreso_seccion int;
+ 	p_cantidad_niveles int;
+ 	p_numero_preguntas int;
+  	i INT;
+    contador INT := 1;
+   	p_id_pregunta_seleccionada int;
+   	p_id_nivel int;
+ 	--consulta que devuelve las secciones de un test
+    curCopiar cursor for 
+    			select ps.id_progreso_seccion, ps.id_seccion,ts.cantidad_niveles,ts.numero_preguntas  from progreso_secciones ps 
+				inner join test_secciones ts on ps.id_seccion = ts.id_seccion
+				inner join test t on ts.id_test = t.id_test
+				where ps.id_participante_test = p_id_participante_test 
+				and cast(t.tokens as character varying)= p_token_test;
+begin
+	--/Antes de Abrir el cursor se pueden declarar cosas, como por ejemplo crear un nuevo registro/
+	--
+   open curCopiar;
+	fetch next from curCopiar INTO p_id_progreso_seccion, p_id_seccion, p_cantidad_niveles, p_numero_preguntas;
+	while (Found) loop	
+		
+		--/[AQUI VA TODO LO QUE SE QUIERE REALIZAR CON EL CURSOR]/
+		--
+		--p_id_progreso_seccion
+		--p_id_seccion
+		--p_cantidad_niveles
+		--p_numero_preguntas
+			
+		--un for que recorra los niveles de la tabla de la consulta de arriba
+		
+		FOR i IN 1..p_cantidad_niveles LOOP
+		
+			--otro for dentro que recorra las preguntas de esa seccion y de ese nivel
+			--Hacer que recora el 
+			
+			WHILE contador <= p_numero_preguntas LOOP
+				
+				--de esas preguntas que seleccione una aleatoria dependiendo de la cantidad de "numero_preguntas" a seleccionar
+				select p.id_pregunta , p.id_nivel 
+				INTO p_id_pregunta_seleccionada , p_id_nivel from preguntas p 
+                inner join niveles n on p.id_nivel = n.id_nivel
+                inner join secciones s on n.id_seccion = s.id_seccion
+                inner join respuestas r on p.id_pregunta =r.id_pregunta 
+                where s.id_seccion = p_id_seccion and n.nivel = i and r.correcta
+                ORDER BY random()
+				LIMIT 1;
+                --Validar si el id_pregunta ya esta ingresado en la tabla progreso_preguntas
+				--si la pregunta ya se encuentra registrada, volver a escoger otra pregunta, repetir bucle
+				--id_progreso_seccion
+				--id_pregunta
+				--verificar que las preguntas no se repitan con id	
+  
+            	-- Validar pregunta repetida
+                IF NOT EXISTS (
+	                SELECT 1 FROM progreso_preguntas pr 
+					inner join progreso_secciones ps on pr.id_progreso_seccion  =  ps.id_progreso_seccion
+					inner join preguntas p on pr.id_pregunta = p.id_pregunta 
+					WHERE pr.id_pregunta = p_id_pregunta_seleccionada
+					AND pr.id_progreso_seccion = p_id_progreso_seccion
+					and p.id_nivel = p_id_nivel
+					and ps.id_participante_test = p_id_participante_test
+                ) THEN
+
+                	--si la pregunta no se encuentra registrada entonces ingresarla a la tabla progreso_preguntas
+					--id_progreso_seccion
+					--id_pregunta
+                    INSERT INTO progreso_preguntas (id_progreso_seccion, id_pregunta)
+                    VALUES (p_id_progreso_seccion, p_id_pregunta_seleccionada);
+                   	
+                   --Incrementar el contador, si se registra la pregunta no esta repetida
+                   contador := contador + 1;
+                   
+                ELSE
+                    -- Si la pregunta ya está registrada, no incrementa el contador del bucle
+
+                END IF;
+				
+			END LOOP;
+		contador := 1;
+			
+		END LOOP;
+			
+	--cerrar el cursor 
+	FETCH NEXT FROM curCopiar INTO p_id_progreso_seccion, p_id_seccion, p_cantidad_niveles, p_numero_preguntas;
+	--fetch curCopiar INTO p_id_progreso_seccion, p_id_seccion, p_cantidad_niveles, p_numero_preguntas;
+	end loop;
+	close curCopiar;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en el cursor: %', SQLERRM;
+END;
+$function$
+;
+
+
+ --funcion para eliminar un formulario skere modo diablo
+--Tablas a eliminar por formulario 
+delete from clave_valor_respuesta;
+delete from progreso_respuestas; -->
+delete from progreso_preguntas; -->
+delete from progreso_secciones; -->
+delete from datos_participante_test; -->
+delete from ingresos; --> 
+delete from participantes_test  ; --> 
+delete from test_niveles  ;-->
+delete from test_secciones  ;-->
+delete from errores_test; -->
+delete from test; 
+
+select * from test t ;
+--call SP_Eliminar_Test(123);
+
+Create or Replace Procedure SP_Eliminar_Test(
+										p_id_test integer
+										  )
+Language 'plpgsql'
+AS $$
+begin
+	--Paso 0
+--eliminar con clave valor 
+DELETE FROM clave_valor_respuesta where id_registro in (
+select clr.id_registro  from participantes_test pt
+inner join progreso_secciones ps on ps.id_participante_test =pt.id_participante_test 
+inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
+inner join progreso_respuestas pr on pp.id_progreso_preguntas = pr.id_progreso_pregunta 
+inner join clave_valor_respuesta clr on pr.id_progreso_respuestas =clr.id_progreso_respuesta 
+where pt.id_test =p_id_test);
+
+--Primero eliminar el progreso respuestas 
+DELETE FROM progreso_respuestas 
+WHERE id_progreso_respuestas IN (
+    SELECT pr.id_progreso_respuestas  
+    FROM participantes_test pt
+    INNER JOIN progreso_secciones ps ON ps.id_participante_test = pt.id_participante_test 
+    INNER JOIN progreso_preguntas pp ON ps.id_progreso_seccion = pp.id_progreso_seccion 
+    INNER JOIN progreso_respuestas pr ON pp.id_progreso_preguntas = pr.id_progreso_pregunta 
+    WHERE pt.id_test = p_id_test
+);
+--Segundo eliminar el progreso progreso preguntas 
+DELETE FROM progreso_preguntas 
+WHERE id_progreso_preguntas IN (
+    SELECT pp.id_progreso_preguntas  
+    FROM participantes_test pt
+    INNER JOIN progreso_secciones ps ON ps.id_participante_test = pt.id_participante_test 
+    INNER JOIN progreso_preguntas pp ON ps.id_progreso_seccion = pp.id_progreso_seccion 
+    WHERE pt.id_test = p_id_test
+);
+--Tercero eliminar el progreso seccion
+DELETE FROM progreso_secciones 
+WHERE id_progreso_seccion IN (
+    SELECT ps.id_progreso_seccion  
+    FROM participantes_test pt
+    INNER JOIN progreso_secciones ps ON ps.id_participante_test = pt.id_participante_test 
+    WHERE pt.id_test = p_id_test
+);
+--Cuarto eliminar los datos de los participantes en dicho test 
+delete from datos_participante_test where id_participante_test in (
+select ptt.id_participante_test  from datos_participante_test ptt
+inner join participantes_test pt on ptt.id_participante_test =pt.id_participante_test 
+where pt.id_test =p_id_test);
+--Quinto eliminar los ingresos
+delete from ingresos where id_participante_test in ( 
+select  ptt.id_participante_test from ingresos ptt
+inner join participantes_test pt on ptt.id_participante_test =pt.id_participante_test 
+where pt.id_test =p_id_test);
+--Sexto eliminar participantes_test
+delete from participantes_test where id_test=p_id_test;
+--Septimo eliminar test_niveles
+delete from test_niveles where id_test_niveles in (
+select tn.id_test_niveles from test_niveles tn
+inner join test_secciones ts on tn.id_test_secciones = ts.id_test_secciones 
+where ts.id_test =p_id_test);
+--Octavo eliminar test_secciones
+delete from test_secciones where id_test =p_id_test;
+--Noveno errores_test
+delete from errores_test where id_test =p_id_test;
+--Decimo eliminar el test
+delete from test where id_test =p_id_test;
+	--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+
+
+
+select * from test t;
+
+alter table test 
+add column preguntas_aleatorias bool default true not null;
+
+call SP_Eliminar_Pregunta(185);
+
+--funcion para eliminar preguntas xd 
+Create or Replace Procedure SP_Eliminar_Pregunta(
+										p_id_pregunta integer
+										  )
+Language 'plpgsql'
+AS $$
+begin
+	
+	delete from valor_preguntas where id_valor in (
+	select vp.id_valor  from valor_preguntas vp 
+	inner join respuestas r on vp.id_respuesta =r.id_respuesta 
+	where r.id_pregunta =p_id_pregunta);
+
+
+	delete from claves_preguntas cp where cp.id_pregunta =p_id_pregunta;
+	delete from respuestas r where r.id_pregunta =p_id_pregunta;
+	delete from extra_pregunta ep where ep.id_pregunta =p_id_pregunta;
+	delete from preguntas p where p.id_pregunta =p_id_pregunta;
+		
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+
+select * from tipos_preguntas tp ;
+
+--funcion para eliminar una respuesta 
+
+
+
+Create or Replace Procedure SP_Eliminar_Respuesta(
+										p_id_respuesta integer
+										  )
+Language 'plpgsql'
+AS $$
+begin
+	
+	delete from respuestas r where r.id_respuesta =p_id_respuesta;
+	delete  from valor_preguntas vp where vp.id_respuesta =p_id_respuesta;
+		
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+--cambiar la restriccion para que solo se cree una pregunta repetida por nivel 
+ALTER TABLE public.preguntas ADD CONSTRAINT uq_enunciado UNIQUE (enunciado, id_nivel)
+
+select * from preguntas
+
+--funcion para editar el enunciado de una pregunta de tipo SELCCMA
+
+Create or Replace Procedure SP_Editar_pregunta_SELCCMA(
+										p_id_pregunta integer,
+										p_enunciado_new character varying
+										  )
+Language 'plpgsql'
+AS $$
+begin
+	
+	update preguntas set enunciado = p_enunciado_new where id_pregunta =p_id_pregunta;
+		
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+--funcion para ver el registro de una respuesta 
+select * from data_respuesta_id(586);
+
+CREATE OR REPLACE FUNCTION public.data_respuesta_id(p_id_respuesta integer)
+ RETURNS TABLE(r_id_respuesta integer, r_id_pregunta integer, r_opcion character varying, r_correcta bool, r_estado bool, r_eliminado bool)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select r.id_respuesta, r.id_pregunta, r.opcion, r.correcta, r.estado, r.eliminado from respuestas r where r.id_respuesta =p_id_respuesta;
+end;
+$function$
+;
+
+Create or Replace Procedure SP_Editar_respuesta_SELCCMA(
+										p_id_respuesta integer,
+										p_enunciado_new character varying
+										  )
+Language 'plpgsql'
+AS $$
+begin
+	
+	update respuestas  set opcion =p_enunciado_new  where id_respuesta =p_id_respuesta;
+		
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+select * from respuestas
+
+
+select * from test t 
+
+alter table test 
+add column abierta bool default true not null;
+
+
+--editar la funcion de registrar o crear test para que admita los nuevos parametros 
+-- DROP PROCEDURE public.sp_insertar_test(varchar, timestamp, timestamp, varchar, varchar, int4);
+
+CREATE OR REPLACE PROCEDURE public.sp_insertar_test(IN p_titulo character varying, IN p_fecha_hora_cierre timestamp without time zone,
+	IN p_fecha_hora_inicio timestamp without time zone, IN p_id_user_crea character varying, IN p_descripcion character varying, 
+	IN p_ingresos_permitidos integer, 
+	in p_cualquier_entrar bool,
+	in p_aleatoria bool)
+ LANGUAGE plpgsql
+AS $procedure$ 
+DECLARE 
+    p_id_test int;
+BEGIN
+    INSERT INTO Test (Titulo, Fecha_hora_cierre, Fecha_hora_inicio, ID_User_crea, Descripcion, Ingresos_Permitidos,preguntas_aleatorias, abierta)
+    VALUES (
+        p_titulo,
+        p_fecha_hora_cierre,
+        p_fecha_hora_inicio,
+        --cast(to_char(fecha_hora_inicio,'DD-MON-YYYY HH24:MI')as varchar(500))
+        cast(p_id_user_crea as uuid),
+        p_descripcion,
+        p_ingresos_permitidos,
+        p_aleatoria,
+        p_cualquier_entrar
+    );
+   
+    --SELECT INTO p_id_test id_test FROM test WHERE titulo = p_titulo;
+
+    -- Insertar errores al crear un test 
+    --INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene secciones');
+    --INSERT INTO errores_test (id_test, error_detalle) VALUES (p_id_test, 'El test no contiene participantes');
+    
+    
+EXCEPTION
+    -- Si ocurre algún error, revierte la transacción
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM USING HINT = 'Revisa la transacción principal.';
+END;
+$procedure$
+;
+
+
+CREATE OR REPLACE FUNCTION public.fu_tr_test_insert_error()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin 
+	insert into errores_test(id_test,error_detalle)values(new.id_test,'El test no contiene secciones');
+if new.abierta = false then 
+   insert into errores_test(id_test,error_detalle)values(new.id_test,'El test no contiene participantes');
+  end if;
+return new;
+end
+$function$
+;
+
+select * from test t 
+
+
+
+-- DROP FUNCTION public.fu_lista_participantes_bucar(varchar);
+
+CREATE OR REPLACE FUNCTION public.fu_lista_participantes_bucar(p_palabra_clave character varying)
+ RETURNS TABLE(r_id_participante character varying, r_correo_institucional character varying, r_nombres_apellidos character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select cast(id_participante as varchar(500)), correo_institucional, nombres_apellidos
+	from participantes p where ((nombres_apellidos ILIKE '%' || p_palabra_clave || '%') or (correo_institucional ILIKE '%' || p_palabra_clave || '%'))
+								 and estado
+	order by nombres_apellidos asc limit 7;
+end;
+$function$
+;
+select * from participantes
+
+
+-- DROP FUNCTION public.verificacion_participante_test(varchar, varchar);
+
+CREATE OR REPLACE FUNCTION public.verificacion_participante_test(p_id_token_participante character varying, p_id_token_test character varying)
+ RETURNS TABLE(r_accion character varying, r_registrado bool, r_abierta bool)
+ LANGUAGE plpgsql
+AS $function$
+declare 
+p_id_test int;
+begin
+	/*
+	select case when COUNT(*)>=1 then true else false end as Verification from participantes_test pt inner join test t on pt.id_test =t.id_test
+where cast(t.tokens as character varying)=p_id_token_test and cast(pt.id_participante as character varying)=p_id_token_participante ;
+*/
+	select into p_id_test t.id_test from test t  where cast (t.tokens as character varying) = p_id_token_test; 
+	return query
+	select case when COUNT(*)<=0 then cast('Registrar' as character varying) else cast('Registrado' as character varying) end as control,
+		(select case when COUNT(*)>=1 then true else false end as verification from participantes_test pt where cast(pt.id_participante as character varying) =p_id_token_participante
+		and pt.id_test =p_id_test),
+	(select abierta  from test t where cast (t.tokens as character varying) = p_id_token_test)
+	from datos_participante_test dpt where dpt.id_participante_test= (select pt.id_participante_test from participantes_test pt where cast(pt.id_participante as character varying) =p_id_token_participante
+	and pt.id_test =p_id_test limit 1);
+end;
+$function$
+;
+
+--verificar si el test es abierto o cerrado
+--id user: 211b8964-d7ae-443b-b4f6-c21c3224513d
+--token test: 29bc2f4d-81bb-4f44-8f56-084399c8c4ac
+select * from test t 
+
+select * from verificacion_participante_test('211b8964-d7ae-443b-b4f6-c21c3224513d','d8ede920-ab80-4bce-a223-f7b5f7c4e3f7');
+
+
+
+select * from participantes_test pt 
+--primer verificar si el teste es abierto o cerrado 
+--si abierta es falso entonces verificar si el usuario que se esta intentando registrar esta dentro de la lista 
+	--si esta dentro entonces verificar si tiene datos y si no tiene datos enviarlo a registrar 
+	
+--si abierta es verdadero solo enviar a verificar 
+	--return query
+select case when COUNT(*)>=1 then 'RegistradoAbierto' else 'NoRegistradoAbierto' end as Verification from participantes_test pt inner join test t on pt.id_test =t.id_test
+where cast(t.tokens as character varying)='29bc2f4d-81bb-4f44-8f56-084399c8c4ac' and cast(pt.id_participante as character varying)='211b8964-d7ae-443b-b4f6-c21c3224513d' ;
+	
+-- DROP PROCEDURE public.ingresar_participante_test(varchar, varchar, varchar, varchar, varchar);
+
+CREATE OR REPLACE PROCEDURE public.ingresar_participante_test(IN p_token_id_participante character varying, IN p_token_id_test character varying, IN p_facultad character varying, IN p_carrera character varying, IN p_semestre character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	p_ID_Test int;
+	p_Id_participante_test int;
+	p_ya_registrado bool;
+	p_aleatorias bool;
+begin
+	--primero obtener el id test mediante el token para ingresar al usuario al test 
+	select into p_ID_Test t.id_test from test t where cast(t.tokens as character varying) = p_token_id_test;
+	
+	--Verificar si ya tiene registros en participantes_test, si ya tiene omitir este paso porque puede ser que sea cerrado el test y quiera registrarse
+	select into p_ya_registrado case when COUNT (*)>=1 then true else false end as Verficiation from participantes_test where cast(id_participante as character varying) =p_token_id_participante and id_test = p_ID_Test;
+	
+	if p_ya_registrado = false then 
+	--ingresar el usuario con ese id test obtenido xd 
+		insert into participantes_test(id_participante, id_test) values (cast(p_token_id_participante as UUID), p_ID_Test);
+	end if;
+	
+	--obtener el id del registro de la tabla anterior xd 
+	select into p_Id_participante_test id_participante_test from participantes_test where cast(id_participante as character varying) =p_token_id_participante and id_test = p_ID_Test;
+
+
+	insert into Datos_Participante_Test(
+						id_participante_test,
+						facultad,
+						carrera,
+						semestre
+						)values
+						(
+						 p_Id_participante_test,
+						 p_facultad,
+						 p_carrera,
+						 cast(p_semestre as int)
+						);
+	--llamar al cursor para que se encargue de registrar las secciones
+	PERFORM FU_Cursor_generar_seccion_participante(p_token_id_test,p_Id_participante_test);
+	--llamar al generador de preguntas
+	select into p_aleatorias t.preguntas_aleatorias  from test t where t.id_test =p_ID_Test;
+	perform FU_Cursor_generar_preguntas_participante(p_token_id_test,p_Id_participante_test,p_aleatorias);
+	
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+-- DROP FUNCTION public.fu_cursor_generar_preguntas_participante(varchar, int4);
+
+CREATE OR REPLACE FUNCTION public.fu_cursor_generar_preguntas_participante(p_token_test character varying, p_id_participante_test integer, p_aleatorias bool)
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+ 	p_id_seccion int;
+ 	p_id_progreso_seccion int;
+ 	p_cantidad_niveles int;
+ 	p_numero_preguntas int;
+  	i INT;
+    contador INT := 1;
+   	p_id_pregunta_seleccionada int;
+   	p_id_nivel int;
+ 	--consulta que devuelve las secciones de un test
+    curCopiar cursor for 
+    			select ps.id_progreso_seccion, ps.id_seccion,ts.cantidad_niveles,ts.numero_preguntas  from progreso_secciones ps 
+				inner join test_secciones ts on ps.id_seccion = ts.id_seccion
+				inner join test t on ts.id_test = t.id_test
+				where ps.id_participante_test = p_id_participante_test 
+				and cast(t.tokens as character varying)= p_token_test;
+begin
+	--/Antes de Abrir el cursor se pueden declarar cosas, como por ejemplo crear un nuevo registro/
+	--
+   open curCopiar;
+	fetch next from curCopiar INTO p_id_progreso_seccion, p_id_seccion, p_cantidad_niveles, p_numero_preguntas;
+	while (Found) loop	
+		
+		--/[AQUI VA TODO LO QUE SE QUIERE REALIZAR CON EL CURSOR]/
+		--
+		--p_id_progreso_seccion
+		--p_id_seccion
+		--p_cantidad_niveles
+		--p_numero_preguntas
+			
+		--un for que recorra los niveles de la tabla de la consulta de arriba
+		
+		FOR i IN 1..p_cantidad_niveles LOOP
+		
+			--otro for dentro que recorra las preguntas de esa seccion y de ese nivel
+			--Hacer que recora el 
+			
+			WHILE contador <= p_numero_preguntas LOOP
+				
+				if p_aleatorias then 
+					--DE MANERA ALEATORIA 
+					select p.id_pregunta , p.id_nivel 
+					INTO p_id_pregunta_seleccionada , p_id_nivel from preguntas p 
+                	inner join niveles n on p.id_nivel = n.id_nivel
+                	inner join secciones s on n.id_seccion = s.id_seccion
+                	inner join respuestas r on p.id_pregunta =r.id_pregunta 
+                	where s.id_seccion = p_id_seccion and n.nivel = i and r.correcta
+                	ORDER BY random()
+					LIMIT 1; 	
+				else
+					--DE MANERA SECUENCIAL 
+					select X.IDPRE, X.PNIVEL
+					INTO p_id_pregunta_seleccionada , p_id_nivel 
+					from 
+					(select p.id_pregunta as IDPRE , p.id_nivel as PNIVEL ,ROW_NUMBER() OVER (ORDER BY p.id_pregunta) AS numero_de_fila, p.enunciado
+					--INTO p_id_pregunta_seleccionada , p_id_nivel 
+					from preguntas p 
+					inner join niveles n on p.id_nivel = n.id_nivel
+					inner join secciones s on n.id_seccion = s.id_seccion
+					inner join respuestas r on p.id_pregunta =r.id_pregunta 
+					where s.id_seccion = 60 and n.nivel = 1 --and r.correcta
+					group by p.id_pregunta) as X
+					where numero_de_fila=contador;
+				end if;
+                --Validar si el id_pregunta ya esta ingresado en la tabla progreso_preguntas
+				--si la pregunta ya se encuentra registrada, volver a escoger otra pregunta, repetir bucle
+				--id_progreso_seccion
+				--id_pregunta
+				--verificar que las preguntas no se repitan con id	
+  
+            	-- Validar pregunta repetida
+                IF NOT EXISTS (
+	                SELECT 1 FROM progreso_preguntas pr 
+					inner join progreso_secciones ps on pr.id_progreso_seccion  =  ps.id_progreso_seccion
+					inner join preguntas p on pr.id_pregunta = p.id_pregunta 
+					WHERE pr.id_pregunta = p_id_pregunta_seleccionada
+					AND pr.id_progreso_seccion = p_id_progreso_seccion
+					and p.id_nivel = p_id_nivel
+					and ps.id_participante_test = p_id_participante_test
+                ) THEN
+
+                	--si la pregunta no se encuentra registrada entonces ingresarla a la tabla progreso_preguntas
+					--id_progreso_seccion
+					--id_pregunta
+                    INSERT INTO progreso_preguntas (id_progreso_seccion, id_pregunta)
+                    VALUES (p_id_progreso_seccion, p_id_pregunta_seleccionada);
+                   	
+                   --Incrementar el contador, si se registra la pregunta no esta repetida
+                   contador := contador + 1;
+                   
+                ELSE
+                    -- Si la pregunta ya está registrada, no incrementa el contador del bucle
+
+                END IF;
+				
+			END LOOP;
+		contador := 1;
+			
+		END LOOP;
+			
+	--cerrar el cursor 
+	FETCH NEXT FROM curCopiar INTO p_id_progreso_seccion, p_id_seccion, p_cantidad_niveles, p_numero_preguntas;
+	--fetch curCopiar INTO p_id_progreso_seccion, p_id_seccion, p_cantidad_niveles, p_numero_preguntas;
+	end loop;
+	close curCopiar;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en el cursor: %', SQLERRM;
+END;
+$function$
+;
+
+
+
+
+-- DROP FUNCTION public.fu_tr_test_participantes_delete();
+
+CREATE OR REPLACE FUNCTION public.fu_tr_test_participantes_delete()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	p_tiene_participantes bool;
+	p_tiene_registro bool;
+	p_is_abierto bool;
+begin
+	--obtener si el test es abierto o cerrado 
+		select into p_is_abierto t.abierta from test t where t.id_test = old.id_test;
+	--primero verificar si tiene participantes activos el test
+	 select into p_tiene_participantes case when COunt(*)>0 then true else false end from participantes_test pt 
+ 	where pt.id_test =old.id_test and estado ;
+	--Verificar si tiene registro de errores de tipo pariticpantes en la tabla errores_test
+ 	select into p_tiene_registro case when COUNT(*)>0 then true else false 
+	end from errores_test et where et.id_test =old.id_test and et.error_detalle ='El test no contiene participantes';
+			
+ 	--si tiene participantes con estado true entonces actualizar el registro de errores_test y poner 
+ 	--false el error contiene participantes
+	if p_tiene_participantes then 
+		   update errores_test set estado = false where id_test =old.id_test and error_detalle='El test no contiene participantes';
+	else 
+			if p_is_abierto = false then 
+				--si no tiene participantes verificar si ya existe el registro para crear o modificarlo 
+				if p_tiene_registro then 
+					--como si tiene registro y el numero de participantes es 0 entonces colocar el estado en false
+					 update errores_test set estado = true where id_test =old.id_test and error_detalle='El test no contiene participantes';
+				else 
+					--como no existe registro entonces crearlo 
+				insert into errores_test(id_test,error_detalle)values(old.id_test,'El test no contiene participantes');
+				end if;
+			else 
+					 update errores_test set estado = false where id_test =old.id_test and error_detalle='El test no contiene participantes';
+			end if;
+			
+	end if;
+   --verificar ele stado del test 
+	call SP_Verificar_Estado_error_Test(old.id_test);
+return new;
+end
+$function$
+;
 
