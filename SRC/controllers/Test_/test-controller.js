@@ -291,6 +291,22 @@ const registrar_respuestas_CLAVE_VALOR1 = async (req, res, next) => {
         return res.status(404).json({ error: error.message });
     }
 }
+//registrar_ingreso
+const registrar_ingreso = async (req, res, next) => {
+    //SP_REGISTRAR_RESPUESTA_MULTIPLE_JSON
+    try {
+        const { user_id_token, test_id_token, user_age } = req.body;
+        const ip = req.ip;
+
+        const result = await pool.query('call registrar_ingreso($1,$2,$3,$4)',
+            [user_id_token, test_id_token, ip, user_age]);
+        return res.status(200).json({ message: "Se registro la respuesta" });
+        //return res.status(200).json(result.rows);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ error: error.message });
+    }
+}
 //FUNCION PARA registrar las respuestas de tipo clave valor 2 
 const registrar_respuestas_CLAVE_VALOR2 = async (req, res, next) => {
     //SP_REGISTRAR_RESPUESTA_MULTIPLE_JSON
@@ -329,5 +345,6 @@ module.exports = {
     registrar_respuestas_CLAVE_VALOR2,
     preguntas_formulario,
     grafica1,
-    eliminar_test
+    eliminar_test,
+    registrar_ingreso
 };

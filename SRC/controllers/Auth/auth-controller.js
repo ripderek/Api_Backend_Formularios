@@ -1,7 +1,7 @@
 const pool = require('../../db');
 const jwt = require('jsonwebtoken');
 //const { publicIp, publicIpv4, publicIpv6 } = require('public-ip');
-const { publicIpv4 } = require('public-ip');
+//const { publicIpv4 } = require('public-ip');
 
 //const publicIp = require('public-ip');
 
@@ -20,8 +20,9 @@ const prueba_conexion = async (req, res, next) => {
 const obtenerIPV4 = async (req, res, next) => {
     try {
         try {
-            const ipAddress = await publicIpv4();
-            return res.status(200).json({ ip: ipAddress });
+            const ip = req.ip;
+            console.log(ip);
+            return res.status(200).json({ ip: ip });
         } catch (error) {
             console.error('Error al obtener la IP:', error);
             return res.status(500).json({ error: 'Error al obtener la IP' });
