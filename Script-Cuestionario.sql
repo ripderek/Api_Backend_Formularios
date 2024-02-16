@@ -6485,10 +6485,10 @@ insert
  
 call public.crear_usuario(
 		'123456',
-		'aherrera@uteq.edu.ec',
-		'1234567891',
-		'Alexander Herrera Silva',
-		'1234567980',
+		'dparra@uteq.edu.ec',
+		'1234567892',
+		'DANIEL ALBERTO PARRA GAVILANES',
+		'1234567982',
 		'Cedula'
 		)
 
@@ -6564,3 +6564,94 @@ $function$
 select * from test t ;
 
 ---funcoin para ver si a un test se le puede agregar mas secciones o eliminarlas si esque no tiene test_participantes
+
+CREATE OR REPLACE FUNCTION public.FU_IS_EDITABLE_TEST(p_id_test integer)
+ RETURNS TABLE(r_is_editable boolean)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select case when COUNT(*)=0 then true else false end as Editable from participantes_test pt where pt.id_test =p_id_test;
+end;
+$function$
+;
+
+
+select * from FU_IS_EDITABLE_TEST(131);
+
+
+select 
+--pt.id_participante_test, 
+    cast(DENSE_RANK() OVER (ORDER by p.nombres_apellidos)as varchar(500)) AS Participante,
+p.nombres_apellidos  ,p.correo_institucional,
+    cast(ROW_NUMBER() OVER (PARTITION BY pt.id_participante_test ORDER BY p.nombres_apellidos, p2.id_pregunta)as varchar(500)) AS Numero_Pregunta
+,p2.enunciado,
+cast(COALESCE(pr.respuesta, '::N/A')as varchar(500)) as Respuesta,
+cast(COALESCE(pr.tiempo_respuesta,0)as varchar(500)) as Tiempo_Respuesta
+from participantes_test pt 
+inner join participantes p on pt.id_participante =p.id_participante
+inner join progreso_secciones ps on ps.id_participante_test =pt.id_participante_test 
+inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
+left join progreso_respuestas pr on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
+inner join preguntas p2 on pp.id_pregunta =p2.id_pregunta 
+where id_test =132
+order by p.nombres_apellidos,p2.id_pregunta;
+
+--funcion para imprimir un excel con los resultados de un test skere modo diablo
+CREATE OR REPLACE FUNCTION public.FU_Generate_Excel(p_id_test integer)
+ RETURNS TABLE(
+ 	
+ )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select 
+--pt.id_participante_test, 
+    cast(DENSE_RANK() OVER (ORDER by p.nombres_apellidos)as varchar(500)) AS Participante,
+p.nombres_apellidos  ,p.correo_institucional,
+    cast(ROW_NUMBER() OVER (PARTITION BY pt.id_participante_test ORDER BY p.nombres_apellidos, p2.id_pregunta)as varchar(500)) AS Numero_Pregunta
+,p2.enunciado,
+cast(COALESCE(pr.respuesta, '::N/A')as varchar(500)) as Respuesta,
+cast(COALESCE(pr.tiempo_respuesta,0)as varchar(500)) as Tiempo_Respuesta
+from participantes_test pt 
+inner join participantes p on pt.id_participante =p.id_participante
+inner join progreso_secciones ps on ps.id_participante_test =pt.id_participante_test 
+inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
+left join progreso_respuestas pr on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
+inner join preguntas p2 on pp.id_pregunta =p2.id_pregunta 
+where id_test =p_id_test
+order by p.nombres_apellidos,p2.id_pregunta;
+end;
+$function$
+;
+
+select * from
+			((select id_area,id_area,nombre_area,logo_url,cabezera from area_departamental where id_area=ID_Cabecera)
+			union all
+			(select ad.id_area,na.id_area_padre,ad.nombre_area,ad.logo_url,ad.cabezera from niveles_areas na
+			inner join area_departamental ad on na.id_area_hijo =ad.id_area 
+			where na.cabezera=ID_Cabecera
+			order by na.id_nivel asc))as x;
+		
+		
+		select * from 
+		((select 'Numero_Participante','Nombres y Apellidos','Correo_Institucional','Numero_Pregunta','Enunciado','Respuesta','Tiempo_Respuesta')
+		union all
+		(select 
+--pt.id_participante_test, 
+    cast(DENSE_RANK() OVER (ORDER by p.nombres_apellidos)as varchar(500)) AS Participante,
+p.nombres_apellidos  ,p.correo_institucional,
+    cast(ROW_NUMBER() OVER (PARTITION BY pt.id_participante_test ORDER BY p.nombres_apellidos, p2.id_pregunta)as varchar(500)) AS Numero_Pregunta
+,p2.enunciado,
+cast(COALESCE(pr.respuesta, '::N/A')as varchar(500)) as Respuesta,
+cast(COALESCE(pr.tiempo_respuesta,0)as varchar(500)) as Tiempo_Respuesta
+from participantes_test pt 
+inner join participantes p on pt.id_participante =p.id_participante
+inner join progreso_secciones ps on ps.id_participante_test =pt.id_participante_test 
+inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
+left join progreso_respuestas pr on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
+inner join preguntas p2 on pp.id_pregunta =p2.id_pregunta 
+where id_test =132
+order by p.nombres_apellidos,p2.id_pregunta))as X;
+
