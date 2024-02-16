@@ -5,6 +5,7 @@ const { upload } = require('../middleware/multer-preguntas');
 const { uploadRes } = require('../middleware/multer-respuestas');
 
 //router.post('/Login', verificaUser);
+//simon
 router.get('/Preguntas_nivel/:id', preguntas_nivel);
 router.get('/Tipos_preguntas_maestras', tipos_maestros_preguntas);
 router.get('/Ver_ImagenPregunta/:id', ver_imagen_pregunta);

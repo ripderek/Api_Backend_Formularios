@@ -264,6 +264,40 @@ const datos_token_id_test = async (req, res, next) => {
         return res.status(404).json({ message: error.message });
     }
 }
+//FUNCION PARA GENERAR UN EXCEL CON TODAS LAS RESPUESTAS DE TODOS LOS PARTICIPANTES DE TODAS LAS SECCIONES DE UN TEST 
+const Excel = require('exceljs');
+
+const Generate_Excel_TODOS = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('select * from FU_Generate_Excel($1)', [id]);
+        // Crear un nuevo libro de Excel
+        const workbook = new Excel.Workbook();
+        const worksheet = workbook.addWorksheet('Datos');
+        // Agregar encabezados de columnas
+        // const columnas = Object.keys(result.rows[0]);
+        // Agregar filas de datos
+        result.rows.forEach(row => {
+            worksheet.addRow(Object.values(row));
+        });
+
+        // Guardar el archivo Excel
+        // await workbook.xlsx.writeFile('datos.xlsx');
+        //worksheet.addRow(columnas);
+        const buffer = await workbook.xlsx.writeBuffer();
+
+        // Enviar el archivo Excel como respuesta
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=datos.xlsx');
+        res.send(buffer);
+        //res.contentType("application/pdf");
+        //res.send(data);
+        //return res.status(200).json({ message: "Excel Generado skere modo diablo" });
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
 //funcion para saber si un test es o no editable skere modo diablo 
 const test_editable = async (req, res, next) => {
     try {
@@ -409,5 +443,6 @@ module.exports = {
     progreso_seccion_usuario,
     progreso_preguntas_usuario,
     eliminar_participante_test,
-    test_editable
+    test_editable,
+    Generate_Excel_TODOS
 };

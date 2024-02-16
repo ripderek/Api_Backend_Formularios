@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const router = Router();
 const { crear_test, test_usuario, errores_test, test_detalle_id, participantes_test, lista_participantes, lista_participantes_busqueda, datos_formulario_token, ingreso_participante_test, verificacion_ingreso_participante, secciones_test, agregar_seccion_test, progreso_secciones_participante, datos_token_id_test, progreso_seccion_siguiente_pregunta, registrar_respuesta_unica, mas_preguntas, registrar_respuestas_multiples, registrar_respuestas_CLAVE_VALOR1, registrar_respuestas_CLAVE_VALOR2, preguntas_formulario, grafica1, eliminar_test, registrar_ingreso, ingresos_usuario, progreso_seccion_usuario,
-    progreso_preguntas_usuario, eliminar_participante_test, test_editable } = require('../controllers/Test_/test-controller');
+    progreso_preguntas_usuario, eliminar_participante_test, test_editable, Generate_Excel_TODOS } = require('../controllers/Test_/test-controller');
 
 //router.post('/Login', verificaUser);
 router.post('/Crear_Test', crear_test);
@@ -18,6 +18,9 @@ router.get('/ProgresoSeccionesUsuarioMonitoreo/:id', progreso_seccion_usuario);
 router.get('/ProgresoPreguntasUsuarioMonitoreo/:id/:id2', progreso_preguntas_usuario);
 //test_editable
 router.get('/IsEditableTest/:id', test_editable);
+//Generate_Excel_TODOS para generar el excel con todas las respuestas de todas las secciones de todos los participantes de un test 
+router.post('/Generate_Excel_TODOS/:id', Generate_Excel_TODOS);
+
 
 
 router.post('/AgregarSeccionTest', agregar_seccion_test);
