@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const router = Router();
-const { crear_test, test_usuario, errores_test, test_detalle_id, participantes_test, lista_participantes, lista_participantes_busqueda, datos_formulario_token, ingreso_participante_test, verificacion_ingreso_participante, secciones_test, agregar_seccion_test, progreso_secciones_participante, datos_token_id_test, progreso_seccion_siguiente_pregunta, registrar_respuesta_unica, mas_preguntas, registrar_respuestas_multiples, registrar_respuestas_CLAVE_VALOR1, registrar_respuestas_CLAVE_VALOR2, preguntas_formulario, grafica1, eliminar_test, registrar_ingreso } = require('../controllers/Test_/test-controller');
+const { crear_test, test_usuario, errores_test, test_detalle_id, participantes_test, lista_participantes, lista_participantes_busqueda, datos_formulario_token, ingreso_participante_test, verificacion_ingreso_participante, secciones_test, agregar_seccion_test, progreso_secciones_participante, datos_token_id_test, progreso_seccion_siguiente_pregunta, registrar_respuesta_unica, mas_preguntas, registrar_respuestas_multiples, registrar_respuestas_CLAVE_VALOR1, registrar_respuestas_CLAVE_VALOR2, preguntas_formulario, grafica1, eliminar_test, registrar_ingreso, ingresos_usuario, progreso_seccion_usuario,
+    progreso_preguntas_usuario, eliminar_participante_test, test_editable } = require('../controllers/Test_/test-controller');
 
 //router.post('/Login', verificaUser);
 router.post('/Crear_Test', crear_test);
@@ -12,6 +13,13 @@ router.get('/ListaParticipantes', lista_participantes);
 router.get('/ListaParticipantesBusqueda/:clave', lista_participantes_busqueda);
 router.get('/VerificacionIngresoParticipante/:token_participante/:token_test', verificacion_ingreso_participante);
 router.get('/SeccionesTest/:id', secciones_test);
+router.get('/IngresosUsuarios/:id', ingresos_usuario);
+router.get('/ProgresoSeccionesUsuarioMonitoreo/:id', progreso_seccion_usuario);
+router.get('/ProgresoPreguntasUsuarioMonitoreo/:id/:id2', progreso_preguntas_usuario);
+//test_editable
+router.get('/IsEditableTest/:id', test_editable);
+
+
 router.post('/AgregarSeccionTest', agregar_seccion_test);
 router.get('/ProgresoSeccionesParticipante/:p_id_toke_particiapnta/:p_id_token_test', progreso_secciones_participante);
 router.get('/TestDataTOken/:p_id_token_test', datos_token_id_test);
@@ -35,6 +43,9 @@ router.get('/DatosFormulario/:token', datos_formulario_token);
 router.get('/PreguntasFormularios/:id', preguntas_formulario);
 //borrar 
 router.post('/EliminarTest/:id', eliminar_test);
+//eliminar participante test 
+router.post('/EliminarParticipanteTest/:id', eliminar_participante_test);
+
 //grafica1
 router.get('/PreguntasFormulariosGrafica/:id/:id2', grafica1);
 

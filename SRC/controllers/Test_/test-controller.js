@@ -24,7 +24,37 @@ const test_usuario = async (req, res, next) => {
         return res.status(404).json({ message: error.message });
     }
 }
-
+//listar los ingresos de un usuario 
+const ingresos_usuario = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('select * from FU_Ingresos_participantes($1)', [id]);
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
+//para ver el progreso seccion de un usuario
+const progreso_seccion_usuario = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('select * from FU_Progreso_seccion_usuario_monitoreo($1)', [id]);
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
+//para ver las preguntas que ha contestado el usuario
+//progreso_seccion_usuario progreso_preguntas_usuario
+const progreso_preguntas_usuario = async (req, res, next) => {
+    try {
+        const { id, id2 } = req.params;
+        const result = await pool.query('select * from FU_Progreso_usuario_monitoreo($1,$2)', [id, id2]);
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        return res.status(404).json({ message: error.message });
+    }
+}
 //listar los errores de un test mediante el id del test
 const errores_test = async (req, res, next) => {
     try {
@@ -191,6 +221,20 @@ const eliminar_test = async (req, res, next) => {
         return res.status(404).json({ error: error.message });
     }
 }
+//funcion para expulsar o eliminar participante del test, esto conlleva eliminar todo su progreso 
+const eliminar_participante_test = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('call SP_Eliminar_o_expulsar_participante_test($1)',
+            [id]);
+        return res.status(200).json({ message: "Se ha eliminado el participante del  test" });
+        //return res.status(200).json(result.rows);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ error: error.message });
+    }
+}
+
 
 //funcion que devuelve el progreso 
 const progreso_secciones_participante = async (req, res, next) => {
@@ -214,6 +258,20 @@ const datos_token_id_test = async (req, res, next) => {
         // console.log(p_id_toke_particiapnta + "-" + p_id_token_test);
         //p_id_toke_particiapnta/:p_id_token_test
         const result = await pool.query('select * from FU_datos_test_token_id($1)', [p_id_token_test]);
+        return res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
+//funcion para saber si un test es o no editable skere modo diablo 
+const test_editable = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        // console.log("error aqui");
+        // console.log(p_id_toke_particiapnta + "-" + p_id_token_test);
+        //p_id_toke_particiapnta/:p_id_token_test
+        const result = await pool.query('select * from FU_IS_EDITABLE_TEST($1)', [id]);
         return res.status(200).json(result.rows[0]);
     } catch (error) {
         console.log(error);
@@ -346,5 +404,10 @@ module.exports = {
     preguntas_formulario,
     grafica1,
     eliminar_test,
-    registrar_ingreso
+    registrar_ingreso,
+    ingresos_usuario,
+    progreso_seccion_usuario,
+    progreso_preguntas_usuario,
+    eliminar_participante_test,
+    test_editable
 };
