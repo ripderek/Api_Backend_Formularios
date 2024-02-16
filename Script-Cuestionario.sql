@@ -5072,7 +5072,8 @@ begin
 	inner join secciones s on ts.id_seccion = s.id_seccion 
 	inner join niveles n on n.id_seccion = s.id_seccion 
 	inner join preguntas p on n.id_nivel = p.id_nivel 
-	where ts.id_test =p_id_test;	
+	where ts.id_test =p_id_test
+	order by p.id_pregunta asc;	
 end;
 $function$
 ;
@@ -5130,7 +5131,8 @@ where pt.id_test =p_id_test and pp.id_pregunta=p_id_pregunta and pr.respuesta = 
 as Num
 from preguntas p 
 inner join respuestas r on p.id_pregunta =r.id_pregunta
-where p.id_pregunta =p_id_pregunta;
+where p.id_pregunta =p_id_pregunta
+order by r.id_respuesta;
 end;
 $function$
 ;
@@ -6063,3 +6065,502 @@ end
 $function$
 ;
 
+
+
+
+
+
+
+-- DROP FUNCTION public.fu_test_usuario(varchar);
+
+CREATE OR REPLACE FUNCTION public.fu_test_usuario(p_user_id character varying)
+ RETURNS TABLE(r_id_test integer, r_titulo character varying, r_fecha_incio character varying, r_fecha_fin character varying, r_estado character varying, r_suspendido boolean, r_descripcion character varying, r_ingresos_permitidos integer, r_token character varying, r_error boolean, r_abierta boolean)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select id_test , cast(LEFT(titulo, 80) || '...' as varchar(900) ) as titulo, 
+	cast(to_char(fecha_hora_inicio,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_inicio,
+	cast(to_char(fecha_hora_cierre,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_cierre,
+	estado_detalle, 
+	suspendio, descripcion, ingresos_permitidos, cast(tokens as varchar(900)), case when (select Count(*) from errores_test er where er.id_test=t.id_test and estado )>=1 then true else false end as error
+	, t.abierta
+	from test t;
+	--where cast(id_user_crea as varchar(900))= p_user_id; --and estado = true;
+end;
+$function$
+;
+
+select * from test;
+ 
+select * from ingresos i ;
+
+alter table ingresos 
+add column IP_ingreso varchar(500);
+
+alter table ingresos 
+add column User_Agent varchar(500);
+select * from participantes_test pt ;
+--funcion para registrar un ingreso 
+CREATE OR REPLACE PROCEDURE public.registrar_ingreso(
+		user_id_token character varying,
+		test_id_token character varying,
+		ip_ingre character varying,
+		user_age character varying
+		)
+LANGUAGE plpgsql
+AS $procedure$
+declare 
+	p_id_participante int;
+Begin
+	select into p_id_participante id_participante_test from participantes_test where cast(id_participante as character varying) = user_id_token and id_test= (select id_test from test where cast(tokens as character varying)=test_id_token limit 1);
+	insert into ingresos(id_participante_test, ip_ingreso, user_agent) values (
+	p_id_participante,ip_ingre,user_age
+	);
+	
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+SELECT * from test t 
+
+select * from datos_participante_test dpt 
+
+-- DROP FUNCTION public.fu_cursor_generar_preguntas_participante(varchar, int4, bool);
+
+CREATE OR REPLACE FUNCTION public.fu_cursor_generar_preguntas_participante(p_token_test character varying, p_id_participante_test integer, p_aleatorias boolean)
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+ 	p_id_seccion int;
+ 	p_id_progreso_seccion int;
+ 	p_cantidad_niveles int;
+ 	p_numero_preguntas int;
+  	i INT;
+    contador INT := 1;
+   	p_id_pregunta_seleccionada int;
+   	p_id_nivel int;
+ 	--consulta que devuelve las secciones de un test
+    curCopiar cursor for 
+    			select ps.id_progreso_seccion, ps.id_seccion,ts.cantidad_niveles,ts.numero_preguntas  from progreso_secciones ps 
+				inner join test_secciones ts on ps.id_seccion = ts.id_seccion
+				inner join test t on ts.id_test = t.id_test
+				where ps.id_participante_test = p_id_participante_test 
+				and cast(t.tokens as character varying)= p_token_test;
+begin
+	--/Antes de Abrir el cursor se pueden declarar cosas, como por ejemplo crear un nuevo registro/
+	--
+   open curCopiar;
+	fetch next from curCopiar INTO p_id_progreso_seccion, p_id_seccion, p_cantidad_niveles, p_numero_preguntas;
+	while (Found) loop	
+		
+		--/[AQUI VA TODO LO QUE SE QUIERE REALIZAR CON EL CURSOR]/
+		--
+		--p_id_progreso_seccion
+		--p_id_seccion
+		--p_cantidad_niveles
+		--p_numero_preguntas
+			
+		--un for que recorra los niveles de la tabla de la consulta de arriba
+		
+		FOR i IN 1..p_cantidad_niveles LOOP
+		
+			--otro for dentro que recorra las preguntas de esa seccion y de ese nivel
+			--Hacer que recora el 
+			
+			WHILE contador <= p_numero_preguntas LOOP
+				/*
+				if p_aleatorias then 
+					--DE MANERA ALEATORIA 
+					select p.id_pregunta , p.id_nivel 
+					INTO p_id_pregunta_seleccionada , p_id_nivel from preguntas p 
+                	inner join niveles n on p.id_nivel = n.id_nivel
+                	inner join secciones s on n.id_seccion = s.id_seccion
+                	inner join respuestas r on p.id_pregunta =r.id_pregunta 
+                	where s.id_seccion = p_id_seccion and n.nivel = i and r.correcta
+                	ORDER BY random()
+					LIMIT 1; 	
+				else
+					--DE MANERA SECUENCIAL 
+					select X.IDPRE, X.PNIVEL
+					INTO p_id_pregunta_seleccionada , p_id_nivel 
+					from 
+					(select p.id_pregunta as IDPRE , p.id_nivel as PNIVEL ,ROW_NUMBER() OVER (ORDER BY p.id_pregunta) AS numero_de_fila, p.enunciado
+					--INTO p_id_pregunta_seleccionada , p_id_nivel 
+					from preguntas p 
+					inner join niveles n on p.id_nivel = n.id_nivel
+					inner join secciones s on n.id_seccion = s.id_seccion
+					inner join respuestas r on p.id_pregunta =r.id_pregunta 
+					where s.id_seccion = p_id_seccion and n.nivel = i --and r.correcta
+					group by p.id_pregunta) as X
+					where numero_de_fila=contador;
+				end if;
+				*/
+				--DE MANERA SECUENCIAL 
+					select X.IDPRE, X.PNIVEL
+					INTO p_id_pregunta_seleccionada , p_id_nivel 
+					from 
+					(select p.id_pregunta as IDPRE , p.id_nivel as PNIVEL ,ROW_NUMBER() OVER (ORDER BY p.id_pregunta) AS numero_de_fila, p.enunciado
+					--INTO p_id_pregunta_seleccionada , p_id_nivel 
+					from preguntas p 
+					inner join niveles n on p.id_nivel = n.id_nivel
+					inner join secciones s on n.id_seccion = s.id_seccion
+					inner join respuestas r on p.id_pregunta =r.id_pregunta 
+					where s.id_seccion = p_id_seccion and n.nivel = i --and r.correcta
+					group by p.id_pregunta) as X
+					where numero_de_fila=contador;
+                --Validar si el id_pregunta ya esta ingresado en la tabla progreso_preguntas
+				--si la pregunta ya se encuentra registrada, volver a escoger otra pregunta, repetir bucle
+				--id_progreso_seccion
+				--id_pregunta
+				--verificar que las preguntas no se repitan con id	
+  
+            	-- Validar pregunta repetida
+                IF NOT EXISTS (
+	                SELECT 1 FROM progreso_preguntas pr 
+					inner join progreso_secciones ps on pr.id_progreso_seccion  =  ps.id_progreso_seccion
+					inner join preguntas p on pr.id_pregunta = p.id_pregunta 
+					WHERE pr.id_pregunta = p_id_pregunta_seleccionada
+					AND pr.id_progreso_seccion = p_id_progreso_seccion
+					and p.id_nivel = p_id_nivel
+					and ps.id_participante_test = p_id_participante_test
+                ) THEN
+
+                	--si la pregunta no se encuentra registrada entonces ingresarla a la tabla progreso_preguntas
+					--id_progreso_seccion
+					--id_pregunta
+                    INSERT INTO progreso_preguntas (id_progreso_seccion, id_pregunta)
+                    VALUES (p_id_progreso_seccion, p_id_pregunta_seleccionada);
+                   	
+                   --Incrementar el contador, si se registra la pregunta no esta repetida
+                   contador := contador + 1;
+                   
+                ELSE
+                    -- Si la pregunta ya está registrada, no incrementa el contador del bucle
+
+                END IF;
+				
+			END LOOP;
+		contador := 1;
+			
+		END LOOP;
+			
+	--cerrar el cursor 
+	FETCH NEXT FROM curCopiar INTO p_id_progreso_seccion, p_id_seccion, p_cantidad_niveles, p_numero_preguntas;
+	--fetch curCopiar INTO p_id_progreso_seccion, p_id_seccion, p_cantidad_niveles, p_numero_preguntas;
+	end loop;
+	close curCopiar;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en el cursor: %', SQLERRM;
+END;
+$function$
+;
+
+
+select p.id_pregunta as IDPRE , p.id_nivel as PNIVEL ,ROW_NUMBER() OVER (ORDER BY p.id_pregunta) AS numero_de_fila, p.enunciado
+					--INTO p_id_pregunta_seleccionada , p_id_nivel 
+					from preguntas p 
+					inner join niveles n on p.id_nivel = n.id_nivel
+					inner join secciones s on n.id_seccion = s.id_seccion
+					inner join respuestas r on p.id_pregunta =r.id_pregunta 
+					where s.id_seccion = 60 and n.nivel = 1 --and r.correcta
+					group by p.id_pregunta
+					
+select * from test_secciones ts where ts.id_test =132;
+select * from test t 
+
+select * from progreso_preguntas pp inner join preguntas p on pp.id_pregunta = p.id_pregunta;
+
+
+
+
+-- DROP FUNCTION public.fu_lista_preguntas_faltan_resolver(varchar, varchar, int4);
+
+CREATE OR REPLACE FUNCTION public.fu_lista_preguntas_faltan_resolver(p_id_participante character varying, p_tokens character varying, p_id_seccion integer)
+ RETURNS TABLE(r_id_progreso_preguntas integer, r_id_pregunta integer, r_nivel integer, r_codigo character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select  pp.id_progreso_preguntas , pp.id_pregunta ,n.nivel , tp.codigo 
+	from participantes_test pt 
+		inner join test t on pt.id_test =t.id_test 
+		inner join progreso_secciones ps on pt.id_participante_test =ps.id_participante_test 
+		inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion
+		inner join preguntas p on pp.id_pregunta = p.id_pregunta 
+		inner join niveles n on p.id_nivel =n.id_nivel 
+		inner join tipos_preguntas tp on p.tipo_pregunta =tp.id_tipo_pregunta 
+		--hacer que con el left join, para que solo me muestre las preguntas que no estan registradas en la tabla progreso_respuestas
+		left join progreso_respuestas pr on pp.id_progreso_preguntas  = pr.id_progreso_pregunta 
+	where cast(pt.id_participante as character varying)= p_id_participante 
+	and cast(t.tokens as character varying) =p_tokens
+	and ps.id_seccion =p_id_seccion --el id seccion tambien es parametro
+	and pr.id_progreso_pregunta is null
+	order by n.nivel
+	, p.id_pregunta
+	asc;
+
+end;
+$function$
+;
+
+select * from participantes_test pt 
+select * from test t 
+select * from progreso_secciones;
+select * from fu_lista_preguntas_faltan_resolver('9453f1e2-9feb-4f11-b084-591e350714f0','d8ede920-ab80-4bce-a223-f7b5f7c4e3f7',60);
+
+
+
+--funcion para ver los ingresos de un participante 
+drop function FU_Ingresos_participantes(p_id_participante integer)
+
+create or replace function FU_Ingresos_participantes(p_id_participante integer)
+returns table
+(
+	r_id_ingreso integer, r_fecha_ingreso varchar(50), r_ip_ingreso varchar(50), r_dispositivo varchar(500), r_hora_ingreso varchar(500)
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select i.id_ingreso , cast(to_char(i.fecha_ingreso ,'DD-MON-YYYY')as varchar(500)), i.ip_ingreso , i.user_agent,
+	cast(TO_CHAR(i.fecha_ingreso, 'HH24:MI:SS')as varchar(500))
+	from ingresos i where i.id_participante_test =p_id_participante
+	order by i.fecha_ingreso asc;
+end;
+$BODY$
+
+select * from FU_Ingresos_participantes(142);
+
+	select i.id_ingreso ,i.fecha_ingreso , i.ip_ingreso , i.user_agent  from ingresos i where i.id_participante_test =136;
+
+
+
+
+create or replace function FU_Progreso_usuario_monitoreo(p_id_participante integer, p_id_progreso_seccion integer)
+returns table
+(
+	r_id_progreso_pregunta integer, r_enunciado varchar(500), r_respuesta varchar(500), r_tiempo_respuesta int
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select pp.id_progreso_preguntas, p.enunciado ,cast(COALESCE(pr.respuesta, '::N/A')as varchar(500)),pr.tiempo_respuesta  from progreso_secciones ps 
+	inner join progreso_preguntas pp on ps.id_progreso_seccion = pp.id_progreso_seccion  
+	left join progreso_respuestas pr on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
+	inner join preguntas p on pp.id_pregunta =p.id_pregunta 
+	where ps.id_participante_test =p_id_participante and ps.id_progreso_seccion =p_id_progreso_seccion
+	order by id_progreso_preguntas;
+end;
+$BODY$
+
+select pp.id_progreso_preguntas, p.enunciado ,cast(COALESCE(pr.respuesta, '::N/A')as varchar(500)) ,pr.tiempo_respuesta  from progreso_secciones ps 
+	inner join progreso_preguntas pp on ps.id_progreso_seccion = pp.id_progreso_seccion  
+	left join progreso_respuestas pr on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
+	inner join preguntas p on pp.id_pregunta =p.id_pregunta 
+	where ps.id_participante_test =139 and ps.id_progreso_seccion =79
+	order by id_progreso_preguntas;
+	
+
+select * from FU_Progreso_usuario_monitoreo(139,79);
+select * from FU_Progreso_seccion_usuario_monitoreo(139);
+
+--funcion para ver las secciones de un usuario para ver su progreso skere modo diablo
+
+
+create or replace function FU_Progreso_seccion_usuario_monitoreo(p_id_participante integer)
+returns table
+(
+	r_id_progreso_seccion integer, r_id_seccion int, r_descripcion varchar(500), r_titulo varchar(500)
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	select ps.id_progreso_seccion , s.id_seccion , s.descripcion , s.titulo  from progreso_secciones ps 
+	inner join secciones s on ps.id_seccion=s.id_seccion 
+	where ps.id_participante_test =p_id_participante;
+end;
+$BODY$
+
+
+
+--procedimiento para expulsar un usuario de un test, es decir, eliminarlo 
+Create or Replace Procedure SP_Eliminar_o_expulsar_participante_test(
+										p_id_particpante_test integer
+										  )
+Language 'plpgsql'
+AS $$
+begin
+	--eliminar o expulsa participante del test 
+--primero eliminar el progreso claves respuestas 
+DELETE FROM clave_valor_respuesta 
+WHERE id_registro IN (
+   	select clv.id_registro  from participantes_test pt 
+	inner join progreso_secciones ps on pt.id_participante_test = ps.id_participante_test 
+	inner join progreso_preguntas pp on ps.id_progreso_seccion = pp.id_progreso_seccion
+	inner join progreso_respuestas pr on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
+	inner join clave_valor_respuesta clv on pr.id_progreso_respuestas =clv.id_progreso_respuesta  
+	where pt.id_participante_test =p_id_particpante_test
+);
+--segundo eliminar el progreso respuestas 
+DELETE FROM progreso_respuestas 
+WHERE id_progreso_respuestas IN (
+   	select pr.id_progreso_respuestas  from participantes_test pt 
+	inner join progreso_secciones ps on pt.id_participante_test = ps.id_participante_test 
+	inner join progreso_preguntas pp on ps.id_progreso_seccion = pp.id_progreso_seccion
+	inner join progreso_respuestas pr on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
+	where pt.id_participante_test =p_id_particpante_test
+);
+--segundo eliminar el progreso pregunta 
+DELETE FROM progreso_preguntas 
+WHERE id_progreso_preguntas IN (
+   	select pp.id_progreso_preguntas  from participantes_test pt 
+	inner join progreso_secciones ps on pt.id_participante_test = ps.id_participante_test 
+	inner join progreso_preguntas pp on ps.id_progreso_seccion = pp.id_progreso_seccion
+	where pt.id_participante_test =p_id_particpante_test
+);
+--tercero eliminar el progreso secciones 
+DELETE FROM progreso_secciones 
+WHERE id_progreso_seccion IN (
+   	select ps.id_progreso_seccion  from participantes_test pt 
+	inner join progreso_secciones ps on pt.id_participante_test = ps.id_participante_test 
+	where pt.id_participante_test =p_id_particpante_test
+);
+--eliinar los ingresos
+Delete from ingresos  where id_participante_test =p_id_particpante_test;
+--quinto eliminar los datos del participante 
+Delete from datos_participante_test  where id_participante_test =p_id_particpante_test;
+--eliminar de la tabla participante test 
+delete from participantes_test  where id_participante_test =p_id_particpante_test;
+	
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+
+select * from usuario u;
+select * from interfaz_usuario iu;
+
+--trigger para crear la interfaz de usuario despues de crear el usuario xd 
+-- DROP FUNCTION public.fu_tr_insert_usuario();
+
+CREATE OR REPLACE FUNCTION public.fu_tr_insert_usuario_interfaz()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+		--
+		insert into interfaz_usuario(id_user, sidenavcolor, sidenavtype, transparentnavbar, fixednavbar)
+		values (new.id_user,'orange','dark',false,true);
+return new;
+end
+$function$
+;
+
+create trigger tr_insert_usuario_inter after
+insert
+    on
+    public.usuario for each row execute function fu_tr_insert_usuario_interfaz()
+    
+  select * from usuario u ;
+ delete from usuario where identificacion in ('0928904440','1234654345');
+ 
+call public.crear_usuario(
+		'123456',
+		'aherrera@uteq.edu.ec',
+		'1234567891',
+		'Alexander Herrera Silva',
+		'1234567980',
+		'Cedula'
+		)
+
+
+CREATE OR REPLACE FUNCTION public.fu_progreso_secciones_tokens(p_id_toke_particiapnta character varying, p_id_token_test character varying)
+ RETURNS TABLE(r_id_progreso_seccion integer, r_id_seccion integer, r_id_participante_test integer, r_estado_completado boolean, r_bloqueado boolean, r_porcentaje numeric, r_titulo_seccion character varying, r_descripcion_seccion character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select ps.id_progreso_seccion ,ps.id_seccion ,ps.id_participante_test ,
+		ps.estado_completado ,ps.bloqueado, ps.porcentaje, s.titulo, s.descripcion
+	from test t 
+	inner join participantes_test pt on t.id_test =pt.id_test 
+	inner join progreso_secciones ps on ps.id_participante_test =pt.id_participante_test
+	inner join secciones s on ps.id_seccion = s.id_seccion
+	where cast(t.tokens as character varying)=p_id_token_test
+	and cast(pt.id_participante as character varying)=p_id_toke_particiapnta;
+end;
+$function$
+;
+
+--drop function FU_Progreso_seccion_usuario_monitoreo(p_id_participante integer)
+
+create or replace function FU_Progreso_seccion_usuario_monitoreo(p_id_participante integer)
+returns table
+(
+	r_id_progreso_seccion integer, r_id_seccion int, r_descripcion varchar(500), r_titulo varchar(500),
+	r_id_participante_test integer, r_estado_completado bool, r_bloqueado bool, porcentaje decimal
+)
+language 'plpgsql'
+as
+$BODY$
+begin
+	return query
+	/*select ps.id_progreso_seccion , s.id_seccion , s.descripcion , s.titulo  from progreso_secciones ps 
+	inner join secciones s on ps.id_seccion=s.id_seccion 
+	where ps.id_participante_test =p_id_participante;*/
+
+	select ps.id_progreso_seccion ,ps.id_seccion ,s.descripcion, s.titulo
+		,ps.id_participante_test ,
+		ps.estado_completado ,ps.bloqueado, ps.porcentaje
+	from test t 
+	inner join participantes_test pt on t.id_test =pt.id_test 
+	inner join progreso_secciones ps on ps.id_participante_test =pt.id_participante_test
+	inner join secciones s on ps.id_seccion = s.id_seccion
+	where pt.id_participante_test =p_id_participante;
+	--where cast(t.tokens as character varying)=p_id_token_test
+	--and cast(pt.id_participante as character varying)=p_id_toke_particiapnta;
+end;
+$BODY$
+
+select * from FU_Progreso_seccion_usuario_monitoreo(147)
+select * from participantes_test pt ;
+
+
+
+
+CREATE OR REPLACE FUNCTION public.secciones_test_id(p_id_test integer)
+ RETURNS TABLE(r_id_test_secciones integer, r_estad_test_seccion boolean, r_cantidad_niveles integer, r_id_seccion integer, r_descripcion character varying, r_titulo character varying, r_estado_seccion boolean)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select ts.id_test_secciones,ts.estado ,ts.cantidad_niveles ,s.id_seccion ,s.descripcion ,s.titulo ,s.estado 
+	from test_secciones ts 
+	inner join secciones s on ts.id_seccion = s.id_seccion 	
+	where ts.id_test =131--p_id_test;
+end;
+$function$
+;
+
+select * from test t ;
+
+---funcoin para ver si a un test se le puede agregar mas secciones o eliminarlas si esque no tiene test_participantes
