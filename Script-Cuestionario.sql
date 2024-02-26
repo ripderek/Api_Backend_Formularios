@@ -6584,6 +6584,7 @@ select
 --pt.id_participante_test, 
     cast(DENSE_RANK() OVER (ORDER by p.nombres_apellidos)as varchar(500)) AS Participante,
 p.nombres_apellidos  ,p.correo_institucional,
+s.Titulo,
     cast(ROW_NUMBER() OVER (PARTITION BY pt.id_participante_test ORDER BY p.nombres_apellidos, p2.id_pregunta)as varchar(500)) AS Numero_Pregunta
 ,p2.enunciado,
 cast(COALESCE(pr.respuesta, '::N/A')as varchar(500)) as Respuesta,
@@ -6594,54 +6595,32 @@ inner join progreso_secciones ps on ps.id_participante_test =pt.id_participante_
 inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
 left join progreso_respuestas pr on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
 inner join preguntas p2 on pp.id_pregunta =p2.id_pregunta 
+inner join secciones s on ps.id_seccion=s.id_seccion
 where id_test =132
 order by p.nombres_apellidos,p2.id_pregunta;
 
 --funcion para imprimir un excel con los resultados de un test skere modo diablo
+select * from FU_Generate_Excel(132);
+--DROP FUNCTION public.FU_Generate_Excel(p_id_test integer)
+
 CREATE OR REPLACE FUNCTION public.FU_Generate_Excel(p_id_test integer)
  RETURNS TABLE(
- 	
+ 	r_numero_participante character varying, r_nombres_apellidos character varying, r_correo_institucional character varying,
+ 	r_seccion character varying
+ 	,r_numero_pregunta character varying, r_enunciado character varying,r_respuesta character varying, r_tiempo_respuesta character varying
  )
  LANGUAGE plpgsql
 AS $function$
 begin
 	return query
-	select 
---pt.id_participante_test, 
-    cast(DENSE_RANK() OVER (ORDER by p.nombres_apellidos)as varchar(500)) AS Participante,
-p.nombres_apellidos  ,p.correo_institucional,
-    cast(ROW_NUMBER() OVER (PARTITION BY pt.id_participante_test ORDER BY p.nombres_apellidos, p2.id_pregunta)as varchar(500)) AS Numero_Pregunta
-,p2.enunciado,
-cast(COALESCE(pr.respuesta, '::N/A')as varchar(500)) as Respuesta,
-cast(COALESCE(pr.tiempo_respuesta,0)as varchar(500)) as Tiempo_Respuesta
-from participantes_test pt 
-inner join participantes p on pt.id_participante =p.id_participante
-inner join progreso_secciones ps on ps.id_participante_test =pt.id_participante_test 
-inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
-left join progreso_respuestas pr on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
-inner join preguntas p2 on pp.id_pregunta =p2.id_pregunta 
-where id_test =p_id_test
-order by p.nombres_apellidos,p2.id_pregunta;
-end;
-$function$
-;
-
-select * from
-			((select id_area,id_area,nombre_area,logo_url,cabezera from area_departamental where id_area=ID_Cabecera)
-			union all
-			(select ad.id_area,na.id_area_padre,ad.nombre_area,ad.logo_url,ad.cabezera from niveles_areas na
-			inner join area_departamental ad on na.id_area_hijo =ad.id_area 
-			where na.cabezera=ID_Cabecera
-			order by na.id_nivel asc))as x;
-		
-		
 		select * from 
-		((select 'Numero_Participante','Nombres y Apellidos','Correo_Institucional','Numero_Pregunta','Enunciado','Respuesta','Tiempo_Respuesta')
+		((select 'Numero_Participante','Nombres y Apellidos','Correo_Institucional','Seccion','Numero_Pregunta','Enunciado','Respuesta','Tiempo_Respuesta')
 		union all
 		(select 
 --pt.id_participante_test, 
     cast(DENSE_RANK() OVER (ORDER by p.nombres_apellidos)as varchar(500)) AS Participante,
 p.nombres_apellidos  ,p.correo_institucional,
+s.Titulo as Seccion,
     cast(ROW_NUMBER() OVER (PARTITION BY pt.id_participante_test ORDER BY p.nombres_apellidos, p2.id_pregunta)as varchar(500)) AS Numero_Pregunta
 ,p2.enunciado,
 cast(COALESCE(pr.respuesta, '::N/A')as varchar(500)) as Respuesta,
@@ -6652,6 +6631,18 @@ inner join progreso_secciones ps on ps.id_participante_test =pt.id_participante_
 inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
 left join progreso_respuestas pr on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
 inner join preguntas p2 on pp.id_pregunta =p2.id_pregunta 
-where id_test =132
+inner join secciones s on ps.id_seccion=s.id_seccion
+where id_test =p_id_test
 order by p.nombres_apellidos,p2.id_pregunta))as X;
 
+end;
+$function$
+;
+
+
+--funcion para ver el progreso general de un usuario skere 
+
+
+		
+		
+	
