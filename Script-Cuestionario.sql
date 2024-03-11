@@ -6634,14 +6634,94 @@ inner join preguntas p2 on pp.id_pregunta =p2.id_pregunta
 inner join secciones s on ps.id_seccion=s.id_seccion
 where id_test =p_id_test
 order by p.nombres_apellidos,p2.id_pregunta))as X;
-
 end;
 $function$
 ;
 
 
 --funcion para ver el progreso general de un usuario skere 
+select * from test t ;
 
+--Progreso de Cada seccion de cada User
+select p.nombres_apellidos,p.correo_institucional, s.titulo,ps.porcentaje   from participantes_test pt 
+inner join progreso_secciones ps on pt.id_participante_test =ps.id_participante_test
+inner join participantes p on pt.id_participante =p.id_participante 
+inner join secciones s on ps.id_seccion = s.id_seccion 
+where pt.id_test =137;
+
+
+
+select p.nombres_apellidos,p.correo_institucional, ROUND(SUM(ps.porcentaje) / (SELECT COUNT(*) FROM test_secciones ts WHERE ts.id_test = 137)::numeric, 2) AS ProgresoGeneral   from participantes_test pt 
+inner join progreso_secciones ps on pt.id_participante_test =ps.id_participante_test
+inner join participantes p on pt.id_participante =p.id_participante 
+inner join secciones s on ps.id_seccion = s.id_seccion 
+where pt.id_test =137
+group by p.nombres_apellidos,p.correo_institucional
+;
+
+
+
+--TODO EN UN JSON
+SELECT json_agg(participante) AS resultados
+FROM (
+    SELECT p.nombres_apellidos AS Nombre, p.correo_institucional AS Correo, 
+           ROUND(SUM(ps.porcentaje) / (SELECT COUNT(*) FROM test_secciones ts WHERE ts.id_test = 137)::numeric, 2) AS Porcentaje,
+           json_agg(json_build_object('Nombre', s.titulo, 'Porcentaje', ps.porcentaje)) AS Progresos
+    FROM participantes_test pt 
+    INNER JOIN progreso_secciones ps ON pt.id_participante_test = ps.id_participante_test
+    INNER JOIN participantes p ON pt.id_participante = p.id_participante 
+    INNER JOIN secciones s ON ps.id_seccion = s.id_seccion 
+    WHERE pt.id_test = 137
+    GROUP BY p.nombres_apellidos, p.correo_institucional
+) participante;
+
+
+SELECT json_agg(participante) AS resultados
+FROM (
+    SELECT p.nombres_apellidos AS Nombre, p.correo_institucional AS Correo, 
+           ROUND(SUM(ps.porcentaje) / (SELECT COUNT(*) FROM test_secciones ts WHERE ts.id_test = 132)::numeric, 2) AS Porcentaje,
+           json_agg(json_build_object('Nombre', s.titulo, 'Porcentaje', ps.porcentaje)) AS Progresos
+    FROM participantes_test pt 
+    INNER JOIN progreso_secciones ps ON pt.id_participante_test = ps.id_participante_test
+    INNER JOIN participantes p ON pt.id_participante = p.id_participante 
+    INNER JOIN secciones s ON ps.id_seccion = s.id_seccion 
+    WHERE pt.id_test = 132
+    GROUP BY p.nombres_apellidos, p.correo_institucional
+    order by p.nombres_apellidos
+) participante;
+
+
+select * from obtener_progreso_participantes(132);
+--funcion para devolver el JSON 
+CREATE OR REPLACE FUNCTION obtener_progreso_participantes(test_id integer )
+RETURNS json AS
+$$
+DECLARE
+    resultado json;
+BEGIN
+    SELECT json_agg(participante) INTO resultado
+    FROM (
+        SELECT p.nombres_apellidos AS Nombre, p.correo_institucional AS Correo, 
+               ROUND(SUM(ps.porcentaje) / (SELECT COUNT(*) FROM test_secciones ts WHERE ts.id_test = test_id)::numeric, 2) AS Porcentaje,
+               json_agg(json_build_object('Nombre', s.titulo, 'Porcentaje', ps.porcentaje)) AS Progresos
+        FROM participantes_test pt 
+        INNER JOIN progreso_secciones ps ON pt.id_participante_test = ps.id_participante_test
+        INNER JOIN participantes p ON pt.id_participante = p.id_participante 
+        INNER JOIN secciones s ON ps.id_seccion = s.id_seccion 
+        WHERE pt.id_test = test_id
+        GROUP BY p.nombres_apellidos, p.correo_institucional
+        order by p.nombres_apellidos
+    ) participante;
+
+    RETURN resultado;
+END;
+$$
+LANGUAGE plpgsql;
+
+
+
+
+select * from progreso_secciones ps ;
 
 		
 		

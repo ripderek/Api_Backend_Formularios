@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const router = Router();
 const { crear_test, test_usuario, errores_test, test_detalle_id, participantes_test, lista_participantes, lista_participantes_busqueda, datos_formulario_token, ingreso_participante_test, verificacion_ingreso_participante, secciones_test, agregar_seccion_test, progreso_secciones_participante, datos_token_id_test, progreso_seccion_siguiente_pregunta, registrar_respuesta_unica, mas_preguntas, registrar_respuestas_multiples, registrar_respuestas_CLAVE_VALOR1, registrar_respuestas_CLAVE_VALOR2, preguntas_formulario, grafica1, eliminar_test, registrar_ingreso, ingresos_usuario, progreso_seccion_usuario,
-    progreso_preguntas_usuario, eliminar_participante_test, test_editable, Generate_Excel_TODOS } = require('../controllers/Test_/test-controller');
+    progreso_preguntas_usuario, eliminar_participante_test, test_editable, Generate_Excel_TODOS, Lista_Progreso_Participantes } = require('../controllers/Test_/test-controller');
 
 //router.post('/Login', verificaUser);
 router.post('/Crear_Test', crear_test);
@@ -51,5 +51,7 @@ router.post('/EliminarParticipanteTest/:id', eliminar_participante_test);
 
 //grafica1
 router.get('/PreguntasFormulariosGrafica/:id/:id2', grafica1);
+//Lista del progreso de los participantes en forma de JSON COMPLETO Lista_Progreso_Participantes
+router.get('/ListaProgresoParticipantesCompleto/:p_id_test', Lista_Progreso_Participantes);
 
 module.exports = router; 
