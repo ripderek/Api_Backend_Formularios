@@ -413,6 +413,21 @@ const registrar_respuestas_CLAVE_VALOR2 = async (req, res, next) => {
         return res.status(404).json({ error: error.message });
     }
 }
+//funcion para retornar el progreso completo de los participantes en forma de lista, es decir, el general y los especificos de cada seccion
+const Lista_Progreso_Participantes = async (req, res, next) => {
+    try {
+        const { p_id_test } = req.params;
+        // console.log("error aqui");
+        // console.log(p_id_toke_particiapnta + "-" + p_id_token_test);
+        //p_id_toke_particiapnta/:p_id_token_test
+        const result = await pool.query('select * from obtener_progreso_participantes($1)', [p_id_test]);
+        console.log(result.rows[0].obtener_progreso_participantes);
+        return res.status(200).json(result.rows[0].obtener_progreso_participantes);
+    } catch (error) {
+        console.log(error);
+        return res.status(404).json({ message: error.message });
+    }
+}
 
 module.exports = {
     crear_test,
@@ -444,5 +459,6 @@ module.exports = {
     progreso_preguntas_usuario,
     eliminar_participante_test,
     test_editable,
-    Generate_Excel_TODOS
+    Generate_Excel_TODOS,
+    Lista_Progreso_Participantes
 };
