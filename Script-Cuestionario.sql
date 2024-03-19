@@ -6720,9 +6720,39 @@ LANGUAGE plpgsql;
 
 
 
+--Retornar tambien los parametros de las plantillas, es decir si tiene tiempo enunciado, tiempo respuesta.
+-- DROP FUNCTION public.fu_plantilla_preguntas_id_maestro(varchar);
 
-select * from progreso_secciones ps ;
+CREATE OR REPLACE FUNCTION public.fu_plantilla_preguntas_id_maestro(p_id_maestro character varying)
+ RETURNS TABLE(r_id_tipo_pregunta integer, r_titulo character varying, r_descripcion character varying, 
+ r_icono character varying, r_codigo character varying,
+ r_enunciado_img bool, r_opciones_img bool, r_tiempo_enunciado bool, r_tiempo_respuesta bool
+ )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select p.id_tipo_pregunta, p.titulo, p.descripcion,p.icono,p.codigo,
+	p.enunciado_img, p.opciones_img, p.tiempo_enunciado,p.tiempo_respuesta
+	from tipos_preguntas p 
+	where p.tipo_pregunta_maestra = cast(p_id_maestro as int) and p.estado;
+end;
+$function$
+;
 
-		
-		
+
+select * from tipos_preguntas
+		select p.id_tipo_pregunta, p.titulo, p.descripcion,p.icono,p.codigo,
+	p.enunciado_img, p.opciones_img, p.tiempo_enunciado, p.tiempo_respuesta
+	from tipos_preguntas p 
+	
+--agregar campo a la tabla tipos preguntas para saber si una pregunta tiene tiempo para resolverse 
+alter table tipos_preguntas 
+add column tiempo_respuesta bool not null default true;	
+
+update tipos_preguntas set tiempo_respuesta= true 
+where codigo not in (
+'SELCCMA' )
+
+
 	
