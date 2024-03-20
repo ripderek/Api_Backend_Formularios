@@ -6721,19 +6721,19 @@ LANGUAGE plpgsql;
 
 
 --Retornar tambien los parametros de las plantillas, es decir si tiene tiempo enunciado, tiempo respuesta.
--- DROP FUNCTION public.fu_plantilla_preguntas_id_maestro(varchar);
+-- DROP FUNCTION public.fu_plantilla_preguntas_id_maestro(p_id_maestro character varying);
 
 CREATE OR REPLACE FUNCTION public.fu_plantilla_preguntas_id_maestro(p_id_maestro character varying)
  RETURNS TABLE(r_id_tipo_pregunta integer, r_titulo character varying, r_descripcion character varying, 
  r_icono character varying, r_codigo character varying,
- r_enunciado_img bool, r_opciones_img bool, r_tiempo_enunciado bool, r_tiempo_respuesta bool
+ r_enunciado_img bool, r_opciones_img bool, r_tiempo_enunciado bool, r_tiempo_respuesta bool, r_opcion_multiple bool
  )
  LANGUAGE plpgsql
 AS $function$
 begin
 	return query
 	select p.id_tipo_pregunta, p.titulo, p.descripcion,p.icono,p.codigo,
-	p.enunciado_img, p.opciones_img, p.tiempo_enunciado,p.tiempo_respuesta
+	p.enunciado_img, p.opciones_img, p.tiempo_enunciado,p.tiempo_respuesta, p.opcion_multiple
 	from tipos_preguntas p 
 	where p.tipo_pregunta_maestra = cast(p_id_maestro as int) and p.estado;
 end;
@@ -6755,4 +6755,218 @@ where codigo not in (
 'SELCCMA' )
 
 
+--drop function fu_datos_pregunta_selcimg_id_pregunta()
+---Editar la funcion para que retorne los datos para todas las preguntas xd 
+CREATE OR REPLACE FUNCTION public.fu_datos_pregunta_selcimg_id_pregunta(p_id_pregunta integer)
+ RETURNS TABLE(r_id_pregunta integer, r_enunciado character varying, r_tiempo_segundo integer, r_columnas_pc integer, r_columnas_movil integer,
+ r_tiempo_enunciado integer)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select p.id_pregunta, p.enunciado, p.tiempos_segundos,coalesce(p.columnas_pc,0) , coalesce(p.columnas_movil,0) ,
+			coalesce ((select ep.tiempo_enunciado from extra_pregunta ep where ep.id_pregunta=p.id_pregunta),0) TiempoEnunciado
+	from preguntas p  
+		inner join tipos_preguntas tp on p.tipo_pregunta = tp.id_tipo_pregunta
+		where p.id_pregunta =p_id_pregunta /*and tp.codigo ='SELCIMG'*/ order by p.fecha_creacion desc limit 1;
+	end;
+$function$
+;
+--anadir el extra pregunta para saber el tiempo de resupuesta
+	select p.id_pregunta, p.enunciado, p.tiempos_segundos,coalesce(p.columnas_pc,0) , coalesce(p.columnas_movil,0) ,
+			coalesce ((select ep.tiempo_enunciado from extra_pregunta ep where ep.id_pregunta=p.id_pregunta),0) TiempoEnunciado
+	from preguntas p  
+		inner join tipos_preguntas tp on p.tipo_pregunta = tp.id_tipo_pregunta
 	
+		
+	select * from extra_pregunta ep 
+	
+	
+--hacer una funcion que edite todos los prametros de un enunciado:
+	--Tiempo respuesta si lo tiene, 
+	--Tiempo enunciado si lo tiene,
+	--Enunciado  obviamente
+CREATE OR REPLACE procedure editar_parametros_preguntas(
+IN p_id_pregunta integer, 
+IN p_enunciado_new character varying,
+in tiene_tiempo_resp bool,
+in tiempo_responder integer,
+in tiene_tiempo_ver bool,
+in tiempo_ver integer
+)
+ LANGUAGE plpgsql
+AS $procedure$
+begin
+	--enunciado de ley tiene skere 
+	update preguntas set enunciado = p_enunciado_new where id_pregunta =p_id_pregunta;
+--preguntar si tiene tiempo para responder?
+if tiene_tiempo_resp then 
+	--select * from preguntas
+update preguntas set tiempos_segundos = tiempo_responder where id_pregunta =p_id_pregunta;
+end if;
+--preguntar si tiene tiempo para ver el enunciado
+if tiene_tiempo_ver then 
+	--select * from extra_pregunta
+update extra_pregunta set tiempo_enunciado = tiempo_ver where id_pregunta =p_id_pregunta;
+end if;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+	
+
+select * from progreso_preguntas pp 
+inner join progreso_secciones ps on pp.id_progreso_seccion =ps.id_progreso_seccion 
+inner join participantes_test pt on ps.id_participante_test =pt.id_participante_test 
+where pt.id_test = 139
+
+
+update progreso_preguntas  set id_pregunta = 83
+where id_progreso_preguntas = 1032
+
+
+select * from extra_pregunta ep where ep.id_pregunta =83
+select * from test t 
+
+
+--funcion para cambiar la imagene de una pregunta skere modo diablo 
+-- DROP PROCEDURE public.sp_crear_pregunta_memrzar(varchar, int4, int4, int4, varchar, int4);
+
+CREATE OR REPLACE PROCEDURE public.actualizar_imagen_pregunta(
+ IN p_url_imagen character varying, IN p_id_pregunta_creada integer)
+ LANGUAGE plpgsql
+AS $procedure$
+begin
+	update extra_pregunta set extra=p_url_imagen where id_pregunta=p_id_pregunta_creada;
+	--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+select * from extra_pregunta where id_pregunta =83;
+
+select * from preguntas p where id_pregunta =83
+
+
+
+
+select * from respuestas r 
+
+--SP para editar respuesta y actualizarla
+select * from respuestas r 
+
+
+CREATE OR REPLACE PROCEDURE public.actualizar_respuesta(
+ IN p_url_imagen character varying, IN p_id_respuesta integer, in _correcta bool)
+ LANGUAGE plpgsql
+AS $procedure$
+begin
+	update respuestas set opcion=p_url_imagen--,  correcta=_correcta 
+where id_respuesta=p_id_respuesta;
+	--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+--cambiar el estado de una respuesta es decir que sea correcta o incorrecta 
+CREATE OR REPLACE PROCEDURE public.actualizar_respuesta_correcta(
+  IN p_id_respuesta integer, in _correcta bool)
+ LANGUAGE plpgsql
+AS $procedure$
+begin
+	update respuestas set correcta=_correcta 
+where id_respuesta=p_id_respuesta;
+	--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+
+select * from tipos_preguntas tp 
+
+---disparador para controlar el numero de opciones correctas dependiendo del tipo de pregunta 
+-- DROP FUNCTION public.fu_tr_anadir_respuesta();
+
+CREATE OR REPLACE FUNCTION public.fu_tr_anadir_respuesta()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	opciones_multiples_op bool;
+	contiene_correctas bool;
+	--Pref_cat varchar(5);
+begin
+	--primero consulta si la la pregunta admite opciones multiples o solo una 
+	select into opciones_multiples_op tp.opcion_multiple  from preguntas p inner join tipos_preguntas tp on p.tipo_pregunta =tp.id_tipo_pregunta 
+	where p.id_pregunta = new.id_pregunta;
+		
+	--hacer un update al registro de la pregunta colocando el bool error = falso porque ya se esta ingresando una repuesta
+
+
+	--hacer el conteo de opciones marcadas como correctas en caso de que solo admita una opcion not
+	if opciones_multiples_op = false then 
+		--consultar cuantas preguntas correctas tiene marcadas porque solo admite 1 este tipo de pregunta
+		select into contiene_correctas case when count(*) >=1 then true else false end  from respuestas r where r.id_pregunta = new.id_pregunta  and r.estado and r.correcta; 
+		--comprar si es true es porque ya tiene respuestas marcadas como correctas 
+		if contiene_correctas = false  then 
+		/*
+		---aqui preguntar si lo que se quiere ingreesar es una opcion coore 
+			if new.correcta then
+					raise exception 'Solo se admite un opcion de respuesta como correcta';
+			end if;
+		else 
+		*/
+			update preguntas set error = true, error_detalle ='Esta pregunta no contiene opcion(es) correta(s)' where id_pregunta =new.id_pregunta;
+		end if;
+		--else if si no contiene correctas entonces actualizar el registro de preguntas bool error = true y detalle 'esta pregunta no contiende opcion(es) correta(s)'
+		if new.correcta then
+			update preguntas set error = false, error_detalle ='' where id_pregunta =new.id_pregunta;
+		end if;
+		--if si la opcion es marcada como correcta acualizar el registro de preguntas bool error= false 
+	--anadir el else para las preguntas multiples 
+	else 
+		--primero preguntar si tiene mas de 2 preguntas como correctas ya que esa es la condicion para que sea multiple 
+		select into contiene_correctas case when count(*) >1 then true else false end  from respuestas r where r.id_pregunta = new.id_pregunta  and r.estado and r.correcta; 
+			if contiene_correctas then 
+				--como contiene mas de 2 correctas entonces la pregunta esta correcta 
+				update preguntas set error = false, error_detalle ='' where id_pregunta =new.id_pregunta;
+			else 
+				-- como no contiene mas de 2 correctas entonces colocar el error que indique que faltan respuestas correctas
+				update preguntas set error = true, error_detalle ='Esta pregunta no contiene más de 2 respuestas correctas' where id_pregunta =new.id_pregunta;
+
+			end if;
+end if;
+return new;
+end
+$function$
+;
+
+
+
+
+
+
+
+
