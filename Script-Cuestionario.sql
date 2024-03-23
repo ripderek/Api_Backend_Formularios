@@ -6734,8 +6734,8 @@ begin
 	return query
 	select p.id_tipo_pregunta, p.titulo, p.descripcion,p.icono,p.codigo,
 	p.enunciado_img, p.opciones_img, p.tiempo_enunciado,p.tiempo_respuesta, p.opcion_multiple
-	from tipos_preguntas p 
-	where p.tipo_pregunta_maestra = cast(p_id_maestro as int) and p.estado;
+	from tipos_preguntas p ;
+	--where p.tipo_pregunta_maestra = cast(p_id_maestro as int) and p.estado;
 end;
 $function$
 ;
@@ -6965,8 +6965,289 @@ $function$
 
 
 
+create trigger tr_editar_respuesta_after after
+update
+    on
+    public.respuestas for each row execute function fu_tr_anadir_respuesta()
+
+    
+    
+    
+    create trigger tr_editar_respuesta_before before
+update
+    on
+    public.respuestas for each row execute function fu_tr_anadir_respuesta_before()
+
+-- DROP FUNCTION public.fu_tr_anadir_respuesta_before();
+
+    
+CREATE OR REPLACE FUNCTION public.fu_tr_anadir_respuesta_before()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	opciones_multiples_op bool;
+	contiene_correctas bool;
+	--Pref_cat varchar(5);
+begin
+	--primero consulta si la la pregunta admite opciones multiples o solo una 
+	select into opciones_multiples_op tp.opcion_multiple  from preguntas p inner join tipos_preguntas tp on p.tipo_pregunta =tp.id_tipo_pregunta 
+	where p.id_pregunta = new.id_pregunta;	
+	--hacer un update al registro de la pregunta colocando el bool error = falso porque ya se esta ingresando una repuesta
+	--hacer el conteo de opciones marcadas como correctas en caso de que solo admita una opcion not
+	if opciones_multiples_op = false then 
+		--consultar cuantas preguntas correctas tiene marcadas porque solo admite 1 este tipo de pregunta
+		select into contiene_correctas case when count(*) >=1 then true else false end  from respuestas r where r.id_pregunta = new.id_pregunta  and r.estado and r.correcta; 
+		--comprar si es true es porque ya tiene respuestas marcadas como correctas 
+		if contiene_correctas then 
+		---aqui preguntar si lo que se quiere ingreesar es una opcion coore 
+			if new.correcta then
+					raise exception 'Solo se admite un opcion de respuesta como correcta';
+			end if;
+		end if;
+end if;
+return new;
+end
+$function$
+;
+
+--restringir las funciones de las estadisiticas si el test no contiene registros de haberse resuelto por lo menos por un particpante \
+-- DROP FUNCTION public.fu_detalle_test_id(int4);
+
+CREATE OR REPLACE FUNCTION public.fu_detalle_test_id(p_id_test integer)
+ RETURNS TABLE(r_titulo character varying, r_titulo_completo character varying, r_fecha_incio character varying, r_fecha_fin character varying, r_estado character varying, r_suspendido boolean, r_descripcion character varying, r_ingresos_permitidos integer, r_token character varying, r_error boolean, r_numero_secciones integer,
+ r_numero_participantes integer, r_preguntas_aleatorias boolean, r_abierta boolean, r_tiene_progreso bool)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	--anadir el numero de secciones que tiene ese test 
+	--anadir el numero de participantes que tiene el test
+	select cast(LEFT(titulo, 80) || '...' as varchar(900) ) as titulo, 
+	titulo,
+	cast(to_char(fecha_hora_inicio,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_inicio,
+	cast(to_char(fecha_hora_cierre,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_cierre,
+	estado_detalle, 
+	suspendio, descripcion, ingresos_permitidos, cast(tokens as varchar(900)), 
+	case when (select Count(*) from errores_test er where er.id_test=p_id_test and estado )>=1 then true else false end as error,
+	(select cast(COUNT(*)as int) from test_secciones ts where ts.estado and ts.id_test=p_id_test),
+	(select cast(COUNT(*)as int) from participantes_test pt where pt.estado and id_test=p_id_test),
+	preguntas_aleatorias,
+	abierta,
+	(select case when COUNT(*)>0 then true else false end as TieneProgreso from participantes_test pt  
+inner join progreso_secciones ps ON pt.id_participante_test =ps.id_participante_test 
+inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
+inner join progreso_respuestas pr  on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
+where pt.id_test =p_id_test)
+	from test 
+	where id_test = p_id_test; --cast(id_user_crea as varchar(900))= p_user_id; --and estado = true;
+end;
+$function$
+;
+
+select * from test t 
+
+
+select cast(LEFT(titulo, 80) || '...' as varchar(900) ) as titulo, 
+	titulo,
+	cast(to_char(fecha_hora_inicio,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_inicio,
+	cast(to_char(fecha_hora_cierre,'DD-MON-YYYY HH24:MI')as varchar(500)) as fecha_hora_cierre,
+	estado_detalle, 
+	suspendio, descripcion, ingresos_permitidos, cast(tokens as varchar(900)), 
+	case when (select Count(*) from errores_test er where er.id_test=140 and estado )>=1 then true else false end as error,
+	(select cast(COUNT(*)as int) from test_secciones ts where ts.estado and ts.id_test=140),
+	(select cast(COUNT(*)as int) from participantes_test pt where pt.estado and id_test=140),
+	preguntas_aleatorias,
+	abierta,
+	--anadir el campo para ver si contiene progresos
+	(select case when COUNT(*)>0 then true else false end as TieneProgreso from participantes_test pt  
+inner join progreso_secciones ps ON pt.id_participante_test =ps.id_participante_test 
+inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
+inner join progreso_respuestas pr  on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
+where pt.id_test =140)
+	from test 
+	where id_test = 140;
+
+select case when COUNT(*)>0 then true else false end as TieneProgreso from participantes_test pt  
+inner join progreso_secciones ps ON pt.id_participante_test =ps.id_participante_test 
+inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
+inner join progreso_respuestas pr  on pp.id_progreso_preguntas =pr.id_progreso_pregunta 
+where pt.id_test =140;
+
+/*
+ 132
+ 140
+ 137
+ * */
+
+
+select * from fu_detalle_test_id(140)
+
+select * from data_respuesta_id(89)
+
+--editar el procedimiento almacenado para poder editar preguntas con estado check o uncheck
+
+-- DROP PROCEDURE public.sp_editar_respuesta_selccma(int4, varchar);
+
+CREATE OR REPLACE PROCEDURE public.sp_editar_respuesta_selccla(IN p_id_respuesta integer, IN p_enunciado_new character varying,
+in estado_correcta bool)
+ LANGUAGE plpgsql
+AS $procedure$
+begin
+	
+	update respuestas  set opcion =p_enunciado_new,correcta=estado_correcta
+where id_respuesta =p_id_respuesta;
+		
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+select * from respuestas
 
 
 
+--colocar el trigger para que controle cada vez que se elimine una opcion de respuesta
+create trigger tr_eliminar_respuesta_before before
+delete
+    on
+    public.respuestas for each row execute function fu_tr_eliminar_respuesta()
+    
+--
+    -- DROP FUNCTION public.fu_tr_anadir_respuesta();
+
+-- DROP FUNCTION public.fu_tr_anadir_respuesta();
+
+CREATE OR REPLACE FUNCTION public.fu_tr_eliminar_2_respuesta()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	opciones_multiples_op bool;
+	contiene_correctas bool;
+	--Pref_cat varchar(5);
+begin
+	--primero consulta si la la pregunta admite opciones multiples o solo una 
+	select into opciones_multiples_op tp.opcion_multiple  from preguntas p inner join tipos_preguntas tp on p.tipo_pregunta =tp.id_tipo_pregunta 
+	where p.id_pregunta = new.id_pregunta;
+		
+	--hacer un update al registro de la pregunta colocando el bool error = falso porque ya se esta ingresando una repuesta
+
+
+	--hacer el conteo de opciones marcadas como correctas en caso de que solo admita una opcion not
+	if opciones_multiples_op = false then 
+		--consultar cuantas preguntas correctas tiene marcadas porque solo admite 1 este tipo de pregunta
+		select into contiene_correctas case when count(*) >=1 then true else false end  from respuestas r where r.id_pregunta = new.id_pregunta  and r.estado and r.correcta; 
+		--comprar si es true es porque ya tiene respuestas marcadas como correctas 
+		if contiene_correctas = false  then 
+		/*
+		---aqui preguntar si lo que se quiere ingreesar es una opcion coore 
+			if new.correcta then
+					raise exception 'Solo se admite un opcion de respuesta como correcta';
+			end if;
+		else 
+		*/
+			update preguntas set error = true, error_detalle ='Esta pregunta no contiene opcion(es) correta(s)' where id_pregunta =new.id_pregunta;
+		end if;
+		--else if si no contiene correctas entonces actualizar el registro de preguntas bool error = true y detalle 'esta pregunta no contiende opcion(es) correta(s)'
+		if new.correcta then
+			update preguntas set error = false, error_detalle ='' where id_pregunta =new.id_pregunta;
+		end if;
+		--if si la opcion es marcada como correcta acualizar el registro de preguntas bool error= false 
+	--anadir el else para las preguntas multiples 
+	else 
+		--primero preguntar si tiene mas de 2 preguntas como correctas ya que esa es la condicion para que sea multiple 
+		select into contiene_correctas case when count(*) >1 then true else false end  from respuestas r where r.id_pregunta = new.id_pregunta  and r.estado and r.correcta; 
+			if contiene_correctas then 
+				--como contiene mas de 2 correctas entonces la pregunta esta correcta 
+				update preguntas set error = false, error_detalle ='' where id_pregunta =new.id_pregunta;
+			else 
+				-- como no contiene mas de 2 correctas entonces colocar el error que indique que faltan respuestas correctas
+				update preguntas set error = true, error_detalle ='Esta pregunta no contiene más de 2 respuestas correctas' where id_pregunta =new.id_pregunta;
+
+			end if;
+end if;
+return new;
+end
+$function$
+;
+
+
+
+create trigger tr_eliminar_respuesta_after after
+delete
+    on
+    public.respuestas for each row execute function fu_tr_anadir_respuesta_eliminado()
+    
+    
+-- DROP FUNCTION public.fu_tr_anadir_respuesta();
+
+CREATE OR REPLACE FUNCTION public.fu_tr_anadir_respuesta_eliminado()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	opciones_multiples_op bool;
+	contiene_correctas bool;
+	--Pref_cat varchar(5);
+begin
+	--primero consulta si la la pregunta admite opciones multiples o solo una 
+	select into opciones_multiples_op tp.opcion_multiple  from preguntas p inner join tipos_preguntas tp on p.tipo_pregunta =tp.id_tipo_pregunta 
+	where p.id_pregunta = OLD.id_pregunta;
+		
+	--hacer un update al registro de la pregunta colocando el bool error = falso porque ya se esta ingresando una repuesta
+
+
+	--hacer el conteo de opciones marcadas como correctas en caso de que solo admita una opcion not
+	if opciones_multiples_op = false then 
+		--consultar cuantas preguntas correctas tiene marcadas porque solo admite 1 este tipo de pregunta
+		select into contiene_correctas case when count(*) >=1 then true else false end  from respuestas r where r.id_pregunta = OLD.id_pregunta  and r.estado and r.correcta; 
+		--comprar si es true es porque ya tiene respuestas marcadas como correctas 
+		if contiene_correctas = false  then 
+		/*
+		---aqui preguntar si lo que se quiere ingreesar es una opcion coore 
+			if new.correcta then
+					raise exception 'Solo se admite un opcion de respuesta como correcta';
+			end if;
+		else 
+		*/
+			update preguntas set error = true, error_detalle ='Esta pregunta no contiene opcion(es) correta(s)' where id_pregunta =OLD.id_pregunta;
+		end if;
+		--else if si no contiene correctas entonces actualizar el registro de preguntas bool error = true y detalle 'esta pregunta no contiende opcion(es) correta(s)'
+		
+	--if new.correcta then
+			--update preguntas set error = false, error_detalle ='' where id_pregunta =new.id_pregunta;
+		--end if;
+	
+	
+	--if si la opcion es marcada como correcta acualizar el registro de preguntas bool error= false 
+	--anadir el else para las preguntas multiples 
+	else 
+		--primero preguntar si tiene mas de 2 preguntas como correctas ya que esa es la condicion para que sea multiple 
+		select into contiene_correctas case when count(*) >1 then true else false end  from respuestas r where r.id_pregunta = OLD.id_pregunta  and r.estado and r.correcta; 
+			if contiene_correctas then 
+				--como contiene mas de 2 correctas entonces la pregunta esta correcta 
+				update preguntas set error = false, error_detalle ='' where id_pregunta =OLD.id_pregunta;
+			else 
+				-- como no contiene mas de 2 correctas entonces colocar el error que indique que faltan respuestas correctas
+				update preguntas set error = true, error_detalle ='Esta pregunta no contiene más de 2 respuestas correctas' where id_pregunta =OLD.id_pregunta;
+
+			end if;
+end if;
+return new;
+end
+$function$
+;
+
+
+---lista de los tipos de preguntas
+select distinct(tp.codigo) from tipos_preguntas tp 
 
 
