@@ -626,6 +626,22 @@ const SP_Editar_respuesta_SELCCMA = async (req, res, next) => {
     return res.status(404).json({ message: error.message });
   }
 };
+//sp_editar_respuesta_selccla
+const sp_editar_respuesta_selccla = async (req, res, next) => {
+  try {
+    const { r_opcion, r_id_respuesta,estado_correcta } = req.body;
+    const result = await pool.query("call sp_editar_respuesta_selccla($1,$2,$3)", [
+      r_id_respuesta,
+      r_opcion,
+      estado_correcta
+    ]);
+    return res.status(200).json({ message: "Se edito la pregunta" });
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ message: error.message });
+  }
+};
+
 
 //Editar los parametros de una pregunta como el enunciado, tiempo enunciado y tiempo respuesta
 const Editar_parametros_pregunta = async (req, res, next) => {
@@ -811,5 +827,6 @@ module.exports = {
   Editar_parametros_pregunta,
   ActualizarImagenPregunta,
   ActualizarImagenRespuesta,
-  Editar_estadp_correcto_incorrecto_respuesta
+  Editar_estadp_correcto_incorrecto_respuesta,
+  sp_editar_respuesta_selccla
 };
