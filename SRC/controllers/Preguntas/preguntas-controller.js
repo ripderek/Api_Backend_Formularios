@@ -78,20 +78,16 @@ const crear_pregunta = async (req, res, next) => {
     const { p_tiempo_img } = req.body;
 
     if (p_tiempos_segundos <= 0)
-      return res
-        .status(404)
-        .json({
-          message:
-            "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
-        });
+      return res.status(404).json({
+        message:
+          "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
+      });
 
     if (p_tiempo_img <= 0)
-      return res
-        .status(404)
-        .json({
-          message:
-            "El tiempo en para memorizar la imagen no puede ser menor o igual a 0 segundos",
-        });
+      return res.status(404).json({
+        message:
+          "El tiempo en para memorizar la imagen no puede ser menor o igual a 0 segundos",
+      });
     const users = await pool.query(
       "Call SP_Crear_Pregunta_MEMRZAR($1,$2,$3,$4,$5,$6)",
       [
@@ -113,7 +109,6 @@ const crear_pregunta = async (req, res, next) => {
   }
 };
 
-
 //nueva funcion para crear las preguntas con el numero de columanas para ver xd skere modo diablo
 const crear_pregunta_columnas = async (req, res, next) => {
   try {
@@ -129,20 +124,16 @@ const crear_pregunta_columnas = async (req, res, next) => {
     const { p_columnas } = req.body;
 
     if (p_tiempos_segundos <= 0)
-      return res
-        .status(404)
-        .json({
-          message:
-            "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
-        });
+      return res.status(404).json({
+        message:
+          "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
+      });
 
     if (p_tiempo_img <= 0)
-      return res
-        .status(404)
-        .json({
-          message:
-            "El tiempo en para memorizar la imagen no puede ser menor o igual a 0 segundos",
-        });
+      return res.status(404).json({
+        message:
+          "El tiempo en para memorizar la imagen no puede ser menor o igual a 0 segundos",
+      });
     const users = await pool.query(
       "Call sp_crear_pregunta_columnas($1,$2,$3,$4,$5,$6,$7)",
       [
@@ -179,12 +170,10 @@ const crear_pregunta_input_num = async (req, res, next) => {
     const { p_tiempo_img } = req.body;
 
     if (p_tiempos_segundos <= 0)
-      return res
-        .status(404)
-        .json({
-          message:
-            "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
-        });
+      return res.status(404).json({
+        message:
+          "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
+      });
 
     if (!p_tiempo_img || isNaN(parseInt(p_tiempo_img)))
       return res
@@ -222,12 +211,10 @@ const crear_pregunta_SELCIMG = async (req, res, next) => {
       req.body;
 
     if (p_tiempos_segundos <= 0)
-      return res
-        .status(404)
-        .json({
-          message:
-            "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
-        });
+      return res.status(404).json({
+        message:
+          "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
+      });
 
     const users = await pool.query(
       "Call SP_Crear_Pregunta_SELCIMG($1,$2,$3,$4)",
@@ -442,12 +429,10 @@ const SP_crear_pregunta_clave_valor_OPCLAVA = async (req, res, next) => {
     console.log(p_claves_valor);
     console.log(JSON.stringify(p_claves_valor));
     if (p_tiempos_segundos <= 0)
-      return res
-        .status(404)
-        .json({
-          message:
-            "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
-        });
+      return res.status(404).json({
+        message:
+          "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
+      });
 
     const users = await pool.query(
       "Call SP_crear_pregunta_clave_valor_OPCLAVA($1,$2,$3,$4,$5,$6)",
@@ -489,12 +474,10 @@ const SP_crear_pregunta_clave_valor_OPCLAVA_no_json = async (
     const { p_tiempo_enunciado } = req.body;
 
     if (p_tiempos_segundos <= 0)
-      return res
-        .status(404)
-        .json({
-          message:
-            "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
-        });
+      return res.status(404).json({
+        message:
+          "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
+      });
 
     const users = await pool.query(
       "Call SP_crear_pregunta_clave_valor_OPCLAVA_no_JSON($1,$2,$3,$4,$5,$6,$7)",
@@ -536,12 +519,10 @@ const SP_crear_pregunta_clave_valor_OPCLAV2_no_json = async (
     const { p_tiempo_enunciado } = req.body;
 
     if (p_tiempos_segundos <= 0)
-      return res
-        .status(404)
-        .json({
-          message:
-            "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
-        });
+      return res.status(404).json({
+        message:
+          "El tiempo en de respuesta no puede ser menor o igual a 0 segundos",
+      });
 
     const users = await pool.query(
       "Call SP_crear_pregunta_clave_valor_OPCLAV2_no_JSON($1,$2,$3,$4,$5,$6,$7,$8)",
@@ -629,19 +610,17 @@ const SP_Editar_respuesta_SELCCMA = async (req, res, next) => {
 //sp_editar_respuesta_selccla
 const sp_editar_respuesta_selccla = async (req, res, next) => {
   try {
-    const { r_opcion, r_id_respuesta,estado_correcta } = req.body;
-    const result = await pool.query("call sp_editar_respuesta_selccla($1,$2,$3)", [
-      r_id_respuesta,
-      r_opcion,
-      estado_correcta
-    ]);
+    const { r_opcion, r_id_respuesta, estado_correcta } = req.body;
+    const result = await pool.query(
+      "call sp_editar_respuesta_selccla($1,$2,$3)",
+      [r_id_respuesta, r_opcion, estado_correcta]
+    );
     return res.status(200).json({ message: "Se edito la pregunta" });
   } catch (error) {
     console.log(error);
     return res.status(404).json({ message: error.message });
   }
 };
-
 
 //Editar los parametros de una pregunta como el enunciado, tiempo enunciado y tiempo respuesta
 const Editar_parametros_pregunta = async (req, res, next) => {
@@ -671,49 +650,18 @@ const Editar_parametros_pregunta = async (req, res, next) => {
     return res.status(404).json({ message: error.message });
   }
 };
-//Cambiar la imagen de una pregunta 
+//Cambiar la imagen de una pregunta
 const ActualizarImagenPregunta = async (req, res, next) => {
-    try {
-      //file de la foto
-      const { file } = req;
-      const foto = `${ipFileServer}${file?.filename}`;
-      const { p_id_pregunta_creada } = req.body;
-  
-        
-      const users = await pool.query(
-        "Call actualizar_imagen_pregunta($1,$2)",
-        [
-          foto,
-          p_id_pregunta_creada,
-        ]
-      );
-      console.log(users);
-      //Llamar a la funcion que enviar el correo
-      //enviarMail(nombres, identificacion, correo2);
-      return res.status(200).json({ message: "Se actualizo la imagen" });
-    } catch (error) {
-      console.log(error);
-      return res.status(404).json({ message: error.message });
-    }
-  };
-//Actualizar respuesta skere modo diablo 
-const ActualizarImagenRespuesta = async (req, res, next) => {
   try {
     //file de la foto
     const { file } = req;
-    const foto = `${ipFileServerRES}${file?.filename}`;
-    const { p_id_respuesta } = req.body;
-    const { _correcta } = req.body;
+    const foto = `${ipFileServer}${file?.filename}`;
+    const { p_id_pregunta_creada } = req.body;
 
-      
-    const users = await pool.query(
-      "Call actualizar_respuesta($1,$2,$3)",
-      [
-        foto,
-        p_id_respuesta,
-        _correcta
-      ]
-    );
+    const users = await pool.query("Call actualizar_imagen_pregunta($1,$2)", [
+      foto,
+      p_id_pregunta_creada,
+    ]);
     console.log(users);
     //Llamar a la funcion que enviar el correo
     //enviarMail(nombres, identificacion, correo2);
@@ -723,19 +671,36 @@ const ActualizarImagenRespuesta = async (req, res, next) => {
     return res.status(404).json({ message: error.message });
   }
 };
-//funcion para cambiar el correcto o incorrecto de una respuesta 
+//Actualizar respuesta skere modo diablo
+const ActualizarImagenRespuesta = async (req, res, next) => {
+  try {
+    //file de la foto
+    const { file } = req;
+    const foto = `${ipFileServerRES}${file?.filename}`;
+    const { p_id_respuesta } = req.body;
+    const { _correcta } = req.body;
+
+    const users = await pool.query("Call actualizar_respuesta($1,$2,$3)", [
+      foto,
+      p_id_respuesta,
+      _correcta,
+    ]);
+    console.log(users);
+    //Llamar a la funcion que enviar el correo
+    //enviarMail(nombres, identificacion, correo2);
+    return res.status(200).json({ message: "Se actualizo la imagen" });
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ message: error.message });
+  }
+};
+//funcion para cambiar el correcto o incorrecto de una respuesta
 const Editar_estadp_correcto_incorrecto_respuesta = async (req, res, next) => {
   try {
-    const {
-      p_id_respuesta,
-      _correcta
-    } = req.body;
+    const { p_id_respuesta, _correcta } = req.body;
     const result = await pool.query(
       "call actualizar_respuesta_correcta($1,$2)",
-      [
-        p_id_respuesta,
-        _correcta
-      ]
+      [p_id_respuesta, _correcta]
     );
     return res.status(200).json({ message: "Se edito la pregunta" });
   } catch (error) {
@@ -743,8 +708,6 @@ const Editar_estadp_correcto_incorrecto_respuesta = async (req, res, next) => {
     return res.status(404).json({ message: error.message });
   }
 };
-
-
 
 //Crear Repuesta Con una clave Valor
 //SP_anadir_respuesta_una_CLAVE_VALOR
@@ -793,6 +756,34 @@ const crear_respuesta_CLAVE_VALOR_2 = async (req, res, next) => {
     return res.status(404).json({ message: error.message });
   }
 };
+//Para ver los valores de una clave para las preguntas de tipo OPCLAVA y OPCLAV2
+const valores_claves_preguntas_editar = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      "select * from fu_opciones_OPCLAVA_OPCLAV2($1)",
+      [id]
+    );
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+};
+//Funcion para editar los valores de las respuestas que tienen clave
+const editar_respuestas_clave_valor = async (req, res, next) => {
+  try {
+    const { r_json_editable } = req.body;
+    const result = await pool.query("call SP_EDITAR_VALORES_CLAVES($1)", [
+      JSON.stringify(r_json_editable),
+    ]);
+    return res.status(200).json({ message: "Se edito la respuesta" });
+    //return res.status(200).json(result.rows);
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ error: error.message });
+  }
+};
+
 module.exports = {
   preguntas_nivel,
   tipos_maestros_preguntas,
@@ -828,5 +819,7 @@ module.exports = {
   ActualizarImagenPregunta,
   ActualizarImagenRespuesta,
   Editar_estadp_correcto_incorrecto_respuesta,
-  sp_editar_respuesta_selccla
+  sp_editar_respuesta_selccla,
+  valores_claves_preguntas_editar,
+  editar_respuestas_clave_valor,
 };

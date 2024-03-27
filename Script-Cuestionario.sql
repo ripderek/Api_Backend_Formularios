@@ -7251,3 +7251,90 @@ $function$
 select distinct(tp.codigo) from tipos_preguntas tp 
 
 
+select * from valor_preguntas vp 
+
+
+--Editar la funcion que devuelve los valores de las claves de cada pregunta para obtener su id y poder editarlo
+-- DROP FUNCTION public.fu_repuestas_con_valores1(int4);
+
+CREATE OR REPLACE FUNCTION public.fu_repuestas_con_valores1(p_id_pregunta integer)
+ RETURNS TABLE(r_id_repuesta integer, r_opcion character varying, r_correcta boolean, r_estado boolean, r_eliminado boolean, r_valor character varying,r_id_valor integer)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select r.id_respuesta, r.opcion, r.correcta, r.estado, r.eliminado, vp.valor, vp.id_valor from respuestas r 
+	inner join valor_preguntas vp on r.id_respuesta = vp.id_respuesta 
+	where id_pregunta = p_id_pregunta;
+	end;
+$function$
+;
+
+
+
+--funcion para devolver los valores de un respuesta de opcion OPVCLAV and OPCLAV2 
+--ejemeplo de valor con 2 atributos: 464
+
+
+select * from fu_opciones_OPCLAVA_OPCLAV2(464);
+
+CREATE OR REPLACE FUNCTION public.fu_opciones_OPCLAVA_OPCLAV2(p_id_respuesta integer)
+ RETURNS TABLE(
+ 	r_id_valor integer, r_id_respuesta integer, r_id_clave integer, r_valor character varying, r_id_pregunta integer, r_clave character varying,
+ 	r_tipo character varying
+ )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select vp.id_valor ,vp.id_respuesta , vp.id_clave , vp.valor , cp.id_pregunta , cp.clave , cp.tipo 
+from valor_preguntas vp 
+inner join claves_preguntas cp  on cp.id_clave = vp.id_clave  
+where vp.id_respuesta =p_id_respuesta;
+	end;
+$function$
+;
+
+--Crear un procedimiento almacenado que reciba como parametro un JSON y que este sea el encargado de editar los valores de las claves 
+--Buscar en la API para copiar y pegar la funcion : SP_REGISTRAR_RESPUESTA_MULTIPLE_JSON
+
+CREATE OR REPLACE PROCEDURE public.SP_EDITAR_VALORES_CLAVES(									
+														IN p_claves_valores json
+														)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	--reemplazar el json para recorrerlo
+	p_p_respuesta JSON;
+	--variables del JSON
+	--r_opcion character varying;
+	--seleccionado bool;
+	r_id_valor int;
+	r_valor character varying;
+begin
+	
+	
+	FOR p_p_respuesta IN SELECT * FROM json_array_elements(p_claves_valores)
+    loop
+	    --varibales 
+       r_id_valor := (p_p_respuesta ->> 'r_id_valor')::integer;
+	   r_valor := (p_p_respuesta ->> 'r_valor')::character varying;
+	 --Aqui hacer el update segun el r_id_valor 
+	  	update valor_preguntas set valor =r_valor where id_valor =r_id_valor;
+    end loop;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+select * from valor_preguntas vp 
+
+
+
+select * from claves_preguntas cp  where cp.id_pregunta =142
+
+
