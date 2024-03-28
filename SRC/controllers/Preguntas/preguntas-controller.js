@@ -783,7 +783,35 @@ const editar_respuestas_clave_valor = async (req, res, next) => {
     return res.status(404).json({ error: error.message });
   }
 };
-
+//Funcion para eliminar un nivel y actualizar los numeros de los niveles,
+//Recibe como parametros el id del nivel y el id de la seccion
+const Eliminar_Nivel_and_edit_numbers_levels = async (req, res, next) => {
+  try {
+    const { p_id_nivel, p_id_seccion } = req.body;
+    const result = await pool.query(
+      "call SP_Eliminar_nivel_y_actualizarlos($1,$2)",
+      [p_id_nivel, p_id_seccion]
+    );
+    return res.status(200).json({ message: "Se elimino el nivel" });
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ message: error.message });
+  }
+};
+//Eliminar la seccion completa con todos los niveles y el contenido
+//SP_eliminar_Seccion_Contenido
+const SP_eliminar_Seccion_Contenido = async (req, res, next) => {
+  try {
+    const { p_id_seccion } = req.body;
+    const result = await pool.query("call SP_eliminar_Seccion_Contenido($1)", [
+      p_id_seccion,
+    ]);
+    return res.status(200).json({ message: "Se elimino la seccion" });
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ message: error.message });
+  }
+};
 module.exports = {
   preguntas_nivel,
   tipos_maestros_preguntas,
@@ -822,4 +850,6 @@ module.exports = {
   sp_editar_respuesta_selccla,
   valores_claves_preguntas_editar,
   editar_respuestas_clave_valor,
+  Eliminar_Nivel_and_edit_numbers_levels,
+  SP_eliminar_Seccion_Contenido,
 };

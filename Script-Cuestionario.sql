@@ -7337,4 +7337,381 @@ select * from valor_preguntas vp
 
 select * from claves_preguntas cp  where cp.id_pregunta =142
 
+--consulta para saber si el ultimo nivel de una seccion contiene preguntas validas para poder crear un nuevo nivel
+
+
+
+
+
+
+
+
+
+--fu_tr_insert_niveles_sum_nivel
+create trigger tr_insert_niveles_sum_nivel before
+insert
+    on
+    public.niveles for each row execute function fu_tr_insert_niveles_sum_nivel()
+    
+    
+---Editar la funcion del trigger para controlar la creacion de nuevos niveles 
+    -- DROP FUNCTION public.fu_tr_insert_niveles_sum_nivel();
+
+CREATE OR REPLACE FUNCTION public.fu_tr_insert_niveles_sum_nivel()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+declare
+	p_nivel int =0;
+	p_contiene_niveles bool;
+	P_ContienePreguntasNivel bool;
+	P_NivelConErrrores bool;
+begin
+	--hacer una condicion para controlar si la seccion tiene mas de un nivel y poder realizar los cambios
+	select into p_contiene_niveles case when COUNT(*)>0 then true else false end as ContieneMasNiveles from niveles n where n.id_seccion =new.id_seccion;
+	if p_contiene_niveles then 
+			---Si el nivel no tiene preguntas entonces no dejar crear niveles 
+			select into P_ContienePreguntasNivel case when count(*)>0 then true else false end as ContienePreguntasNivel from 
+			(select id_nivel,nivel from niveles n where n.id_seccion =new.id_seccion order by nivel desc limit 1) as x
+			inner join preguntas p on p.id_nivel = x.id_nivel;
+		--Exepction
+			if P_ContienePreguntasNivel=false then 
+				 raise exception 'No puede crear niveles porque el ultimo creado no contiene preguntas';
+			end if;
+		--
+			--Si el nivel contiene preguntas con erorres entonces no dejar crear niveles
+			select into P_NivelConErrrores case when count(*)>0 then true else false end as NivelConErrrores from 
+			(select id_nivel,nivel from niveles n where n.id_seccion =new.id_seccion order by nivel desc limit 1) as x
+			inner join preguntas p on p.id_nivel = x.id_nivel
+			where p.error ;
+			
+			if P_NivelConErrrores then 
+				raise exception 'No puede crear niveles porque el ultimo creado contiene preguntas con errores';
+			end if;
+	end if;
+
+	--Si no hay exepciones entonces ejecutar esto 
+	select into p_nivel count(*)+1 from niveles where id_seccion = new.id_seccion;
+	new.nivel = p_nivel;
+return new;
+end
+$function$
+;
+
+--funcion para eliminar un nivel con todo y sus preguntas skere modo diablo
+/*
+ * Ejemplo de una eliminacion mediante un subconsulta:
+ * DELETE FROM clave_valor_respuesta where id_registro in (
+select clr.id_registro  from participantes_test pt
+inner join progreso_secciones ps on ps.id_participante_test =pt.id_participante_test 
+inner join progreso_preguntas pp on ps.id_progreso_seccion =pp.id_progreso_seccion 
+inner join progreso_respuestas pr on pp.id_progreso_preguntas = pr.id_progreso_pregunta 
+inner join clave_valor_respuesta clr on pr.id_progreso_respuestas =clr.id_progreso_respuesta 
+where pt.id_test =p_id_test);
+ * */
+--Lista en cascada de las tablas afectadas para eliminar un nivel 
+/*
+valor_preguntas LISTO
+claves_preguntas LISTO
+respuestas 			LISTO
+extra_pregunta			LISTO
+preguntas			Listo 
+niveles 
+**/
+--Paso 0 eliminar los valores_preguntas de una respuesta 
+--tomar de ejemplo el nivel 4 de la seccion memoria: id = 54
+
+--delete from valor_preguntas where id_respuesta in
+select * from valor_preguntas vp where vp.id_respuesta in (
+select r.id_respuesta  from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+inner join respuestas r on p.id_pregunta =r.id_pregunta
+where 
+n.id_nivel = 35 --id del nivel a eliminar 
+and n.id_seccion =54--Seccion Memoria de ejemplo
+)
+--Paso 1 eliminar las claves_preguntas
+--delete from claves_preguntas where id_pregunta in 
+select * from claves_preguntas where id_pregunta in (
+select p.id_pregunta  from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+where 
+n.id_nivel = 35 --id del nivel a eliminar 
+and n.id_seccion =54--Seccion Memoria de ejemplo
+)
+--Paso 2 eliminar respuestas
+--delete from respuestas where id_pregunta in 
+select * from respuestas   where id_pregunta in (
+select p.id_pregunta  from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+where 
+n.id_nivel = 35 --id del nivel a eliminar 
+and n.id_seccion =54--Seccion Memoria de ejemplo
+)
+--Paso 3 eliminar extra_pregunta
+--delete from extra_pregunta where id_pregunta in 
+select * from extra_pregunta   where id_pregunta in (
+select p.id_pregunta  from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+where 
+n.id_nivel = 35 --id del nivel a eliminar 
+and n.id_seccion =54--Seccion Memoria de ejemplo
+)
+--Paso 4 eliminar preguntas
+--delete from preguntas where id_nivel= 35; --id del nivel 
+select * from preguntas  where id_nivel= 35;
+--Paso 5 eliminar niveles 
+--delete from niveles where id_nivel= 35; --id del nivel 
+select * from niveles  where id_nivel= 35;
+--Paso 6 actualizar los numeros de los niveles con un for por ejemplo skere modo diablo
+
+
+DO $$
+DECLARE
+    contador INTEGER;
+   	finalizador INTEGER;
+   	p_id_nivel_editable integer;
+BEGIN
+    contador := 1;
+   --finalizador:=10; --el numero total de niveles que tiene la seccion a la que se le esta eliminado el nivel actual
+   --obtener el numero de niveles de una seccion 
+	select into finalizador COUNT(*) as NumeroNiveles
+	from niveles n where n.id_seccion =54; --id de la seccion a editar 
+
+	--Recorrer el for para hacer el update de los numeros de los niveles
+    FOR contador IN 1..finalizador loop
+	    --aqui obtener el id del nivel y actualizar segun la iteracion 
+	    select into p_id_nivel_editable x.id_nivel from 
+		(select n.id_nivel,n.id_seccion,n.nivel,
+	    ROW_NUMBER() OVER (PARTITION BY id_seccion ORDER BY id_nivel) AS num
+		from niveles n where n.id_seccion =54) as X 
+		where X.num=contador; --escojer segun el contador
+			
+		--actualizar el nivel segun el id del nivel obtenido y con el nivel del contador
+			update niveles set nivel =contador where id_nivel =p_id_nivel_editable;
+        --RAISE NOTICE 'Nivel %', contador;
+    END LOOP;
+END $$;
+
+
+
+--Ahora guardar todo en un procedimiento almacenado que reciba como parametro dos variables,
+--el id del nivel y el id de la seccion 
+Create or Replace Procedure SP_Eliminar_nivel_y_actualizarlos(
+										p_id_nivel integer,
+										p_id_seccion integer
+										  )
+Language 'plpgsql'
+AS $$
+declare
+	contador INTEGER;
+   	finalizador INTEGER;
+   	p_id_nivel_editable integer;
+begin
+	
+--Paso 0 eliminar los valores_preguntas de una respuesta 
+--tomar de ejemplo el nivel 4 de la seccion memoria: id = 54
+
+delete from valor_preguntas where id_respuesta in
+ (
+select r.id_respuesta  from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+inner join respuestas r on p.id_pregunta =r.id_pregunta
+where 
+n.id_nivel = p_id_nivel --id del nivel a eliminar 
+and n.id_seccion =p_id_seccion--Seccion Memoria de ejemplo
+);
+--Paso 1 eliminar las claves_preguntas
+delete from claves_preguntas where id_pregunta in (
+select p.id_pregunta  from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+where 
+n.id_nivel = p_id_nivel --id del nivel a eliminar 
+and n.id_seccion =p_id_seccion--Seccion Memoria de ejemplo
+);
+--Paso 2 eliminar respuestas
+delete from respuestas where id_pregunta in(
+select p.id_pregunta  from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+where 
+n.id_nivel = p_id_nivel --id del nivel a eliminar 
+and n.id_seccion =p_id_seccion--Seccion Memoria de ejemplo
+);
+--Paso 3 eliminar extra_pregunta
+delete from extra_pregunta where id_pregunta  in(
+select p.id_pregunta  from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+where 
+n.id_nivel = p_id_nivel --id del nivel a eliminar 
+and n.id_seccion =p_id_seccion--Seccion Memoria de ejemplo
+);
+--Paso 4 eliminar preguntas
+delete from preguntas where id_nivel= p_id_nivel; --id del nivel 
+--select * from preguntas  where id_nivel= p_id_nivel;
+--Paso 5 eliminar niveles 
+delete from niveles where id_nivel= p_id_nivel; --id del nivel 
+--select * from niveles  where id_nivel= p_id_nivel;
+--Paso 6 actualizar los numeros de los niveles con un for por ejemplo skere modo diablo
+
+	 contador := 1;
+   --finalizador:=10; --el numero total de niveles que tiene la seccion a la que se le esta eliminado el nivel actual
+   --obtener el numero de niveles de una seccion 
+	select into finalizador COUNT(*) as NumeroNiveles
+	from niveles n where n.id_seccion =p_id_seccion; --id de la seccion a editar 
+
+	--Recorrer el for para hacer el update de los numeros de los niveles
+    FOR contador IN 1..finalizador loop
+	    --aqui obtener el id del nivel y actualizar segun la iteracion 
+	    select into p_id_nivel_editable x.id_nivel from 
+		(select n.id_nivel,n.id_seccion,n.nivel,
+	    ROW_NUMBER() OVER (PARTITION BY id_seccion ORDER BY id_nivel) AS num
+		from niveles n where n.id_seccion =p_id_seccion) as X 
+		where X.num=contador; --escojer segun el contador
+			
+		--actualizar el nivel segun el id del nivel obtenido y con el nivel del contador
+			update niveles set nivel =contador where id_nivel =p_id_nivel_editable;
+        --RAISE NOTICE 'Nivel %', contador;
+    END LOOP;
+	
+	--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+
+
+--Funcion para eliminar toda la seccion completa, es decir, los valores, claves, respuestas, preguntas, extras,niveles
+--hacer un procedimiento que se encargue de eliminar todo uno a uno para luego recorrelo con un for segun los niveles
+Create or Replace Procedure SP_Eliminar_niveles_y_contenido(
+										p_id_nivel integer,
+										p_id_seccion integer
+										  )
+Language 'plpgsql'
+AS $$
+declare
+	contador INTEGER;
+   	finalizador INTEGER;
+   	p_id_nivel_editable integer;
+begin
+	
+--Paso 0 eliminar los valores_preguntas de una respuesta 
+--tomar de ejemplo el nivel 4 de la seccion memoria: id = 54
+
+delete from valor_preguntas where id_respuesta in
+ (
+select r.id_respuesta  from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+inner join respuestas r on p.id_pregunta =r.id_pregunta
+where 
+n.id_nivel = p_id_nivel --id del nivel a eliminar 
+and n.id_seccion =p_id_seccion--Seccion Memoria de ejemplo
+);
+--Paso 1 eliminar las claves_preguntas
+delete from claves_preguntas where id_pregunta in (
+select p.id_pregunta  from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+where 
+n.id_nivel = p_id_nivel --id del nivel a eliminar 
+and n.id_seccion =p_id_seccion--Seccion Memoria de ejemplo
+);
+--Paso 2 eliminar respuestas
+delete from respuestas where id_pregunta in(
+select p.id_pregunta  from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+where 
+n.id_nivel = p_id_nivel --id del nivel a eliminar 
+and n.id_seccion =p_id_seccion--Seccion Memoria de ejemplo
+);
+--Paso 3 eliminar extra_pregunta
+delete from extra_pregunta where id_pregunta  in(
+select p.id_pregunta  from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+where 
+n.id_nivel = p_id_nivel --id del nivel a eliminar 
+and n.id_seccion =p_id_seccion--Seccion Memoria de ejemplo
+);
+--Paso 4 eliminar preguntas
+delete from preguntas where id_nivel= p_id_nivel; --id del nivel 
+--select * from preguntas  where id_nivel= p_id_nivel;
+--Paso 5 eliminar niveles 
+delete from niveles where id_nivel= p_id_nivel; --id del nivel 
+
+	
+	--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción secundaria: %', SQLERRM;	
+END;
+$$;
+
+
+--La fucnion principal tiene que tener un for que recorrar nivel por nivel y obtenga el id del nivel para llamar la 2da parte creada 
+Create or Replace Procedure SP_eliminar_Seccion_Contenido(
+										p_id_seccion integer
+										  )
+Language 'plpgsql'
+AS $$
+declare
+	contador INTEGER;
+   	finalizador INTEGER;
+   	p_id_nivel_editable integer;
+begin
+
+
+	 contador := 1;
+   --finalizador:=10; --el numero total de niveles que tiene la seccion a la que se le esta eliminado el nivel actual
+   --obtener el numero de niveles de una seccion 
+	select into finalizador COUNT(*) as NumeroNiveles
+	from niveles n where n.id_seccion =p_id_seccion; --id de la seccion a editar 
+
+	--Recorrer el for para hacer el update de los numeros de los niveles
+    FOR contador IN 1..finalizador loop
+	    --aqui obtener el id del nivel y actualizar segun la iteracion 
+	    select into p_id_nivel_editable x.id_nivel from 
+		(select n.id_nivel,n.id_seccion,n.nivel,
+	    ROW_NUMBER() OVER (PARTITION BY id_seccion ORDER BY id_nivel) AS num
+		from niveles n where n.id_seccion =p_id_seccion) as X ;
+		--where X.num=contador; --escojer segun el contador
+		--llamar a la funcion que se encarga de eliminar los niveles con su contenido 
+		call SP_Eliminar_niveles_y_contenido(
+										p_id_nivel_editable,
+										p_id_seccion
+										  );
+	
+    END LOOP;
+	--al finalizar el for loop hay que eliminar la seccion 
+   delete from secciones_usuario where id_seccion=p_id_seccion;
+   	delete from secciones  where id_seccion=p_id_seccion;
+	--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal1: %', SQLERRM;	
+END;
+$$;
+
+select * from secciones_usuario su 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
