@@ -38,6 +38,8 @@ const {
   sp_editar_respuesta_selccla,
   valores_claves_preguntas_editar,
   editar_respuestas_clave_valor,
+  Eliminar_Nivel_and_edit_numbers_levels,
+  SP_eliminar_Seccion_Contenido,
 } = require("../controllers/Preguntas/preguntas-controller");
 const { upload } = require("../middleware/multer-preguntas");
 const { uploadRes } = require("../middleware/multer-respuestas");
@@ -157,6 +159,16 @@ router.get(
 //editar_respuestas_clave_valor
 router.post("/editar_respuestas_clave_valor", editar_respuestas_clave_valor);
 //SELCIMG_dato_pregunta_id_pregunta
+
+//eliminar un nivel con sus preguntas y editar los numeros de los niveles
+//Eliminar_Nivel_and_edit_numbers_levels
+router.post(
+  "/Eliminar_Nivel_and_edit_numbers_levels",
+  Eliminar_Nivel_and_edit_numbers_levels
+);
+//para eliminar la seccion completa con todos los niveles y el contenido
+//SP_eliminar_Seccion_Contenido
+router.post("/SP_eliminar_Seccion_Contenido", SP_eliminar_Seccion_Contenido);
 module.exports = router;
 /*
         |I'M NOT IN DANGER SKYLER ------
