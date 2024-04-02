@@ -7700,17 +7700,291 @@ $$;
 select * from secciones_usuario su 
 
 
+select * from secciones s ;
+
+
+
+--funcion con data para editar sobre una seccion mediante el id de la seccion 
+
+select * from FU_info_edit_section(54)
+
+CREATE OR REPLACE FUNCTION public.FU_info_edit_section(p_id_seccion integer)
+ RETURNS TABLE(r_descripcion  character varying, r_titulo character varying, r_Estado bool)
+ LANGUAGE plpgsql
+AS $function$
+
+begin
+			return query
+			select s.descripcion, s.titulo ,s.Estado 
+				from secciones s where s.id_seccion =p_id_seccion;
+end;
+$function$
+;
+
+
+--Procedimiento almacenado para editar los paramatros de la seccion 
+Create or Replace Procedure SP_Editar_Seccion(
+										p_titulo varchar(500),
+										p_descripcion varchar(500),
+										p_new_Estado bool,
+										p_id_seccion integer
+										  )
+Language 'plpgsql'
+AS $$
+
+begin
+	--Editar la seccion
+	update secciones set titulo=p_titulo, descripcion=p_descripcion, estado=p_new_Estado where id_seccion=p_id_seccion;
+	
+--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+select * from secciones s 
+
+--añadir el estado a la funcion que devuelve la lista de las seccioens 
+--añadir si las preguntas de esa seccion contienen errores skere modo diablo
+-- DROP FUNCTION public.fu_secciones_usuario(varchar);
+
+CREATE OR REPLACE FUNCTION public.fu_secciones_usuario(p_idu character varying)
+ RETURNS TABLE(r_id_seccion integer, r_titulo character varying, r_descripcion character varying,
+ r_admin_seccion boolean, r_estado boolean, r_erroneo boolean )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select s.id_seccion ,s.titulo ,s.descripcion, su.admin_seccion,s.estado,
+	--Para identificar si la seccion tiene algun tipo de error 
+	(select 
+case when COUNT(*)>=1 then true --indica que si hay un error
+else 
+	--hacer otro case when que cuente todas las preguntas para ver si da un error
+	case when (select COUNT(*) from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+where n.id_seccion =s.id_seccion and p.error ) = 0 then false else true end 
+end as Verificador
+from 
+(select 
+n.id_nivel,
+(select Count(*) from preguntas p where n.id_nivel=p.id_nivel) as ContadorPreguntas
+from niveles n 
+where n.id_seccion =s.id_seccion and (select Count(*) from preguntas p where n.id_nivel=p.id_nivel)=0) as X
+)
+	from secciones s  
+	inner join secciones_usuario su on s.id_seccion = su.id_seccion  
+	where cast(su.id_usuario as varchar(800)) = p_idu;
+end;
+$function$
+;
+
+--55
+--primero ver si los niveles tienen preguntas
+--Si la primer subconsulta da = entonces hay un error
+
+select * from secciones s 
+
+select 
+case when COUNT(*)>=1 then true --indica que si hay un error
+else false end 
+from 
+(select 
+n.id_nivel,
+(select Count(*) from preguntas p where n.id_nivel=p.id_nivel) as ContadorPreguntas
+from niveles n 
+where n.id_seccion =54 and (select Count(*) from preguntas p where n.id_nivel=p.id_nivel)=0) as X
+
+
+
+select * from test t 
+
+
+
+--Modficar la siguiente funcion para poder controlar si un formulario esta erroneo o esta caducado skere 
+-- DROP FUNCTION public.form_data(varchar);
+
+CREATE OR REPLACE FUNCTION public.form_data(p_token character varying)
+ RETURNS TABLE(r_disponibilidad boolean, r_caducado boolean, r_poximo boolean, r_titulo character varying, r_fecha_hora_inico character varying, r_fecha_cierre character varying, r_estado boolean, r_suspendio boolean, r_descripcion character varying, r_ingresos_permitidos integer, r_token character varying, r_estado_error boolean)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select case when 
+	Now()>=t.fecha_hora_inicio and Now()<= t.fecha_hora_cierre then true else false end as Verificacion_Disponibilidad,
+	case when Now()>t.fecha_hora_cierre then true else false end as Caducado,
+	case when Now()<t.fecha_hora_inicio then true else false end as Proximo,
+	t.titulo, 
+	cast(to_char(t.fecha_hora_inicio,'DD-MON-YYYY')as varchar(500)) as fecha_hora_inicio,
+	cast(to_char(t.fecha_hora_cierre,'DD-MON-YYYY')as varchar(500)) as fecha_cierre, 
+	t.estado,
+	t.suspendio,
+	t.descripcion,
+	t.ingresos_permitidos,
+	cast(t.tokens as character varying),
+	case when estado_detalle='Verificado' then true else false end as Estado_Error
+	from test t where cast(t.tokens as character varying) = '06b20f76-8cc6-457d-beb5-cff15a136e19';--p_token; 
+end;
+$function$
+;
+
+--funcion que retorne ciertos parametros para saber los estados de un formulario 
+select t.tokens ,* from test t ;
+/*
+d8ede920-ab80-4bce-a223-f7b5f7c4e3f7
+06b20f76-8cc6-457d-beb5-cff15a136e19
+3e656c86-bebf-44f0-afca-b33ab3b3f56a
+c391f32e-cc07-45bd-ba2c-48eded0b6460
+ * */
+select Toek,* from test t 
+select * from Estado_Formulario('c391f32e-cc07-45bd-ba2c-48eded0b64260') order by r_estado desc limit 1;
+
+CREATE OR REPLACE FUNCTION public.Estado_Formulario(p_token character varying)
+ RETURNS TABLE(r_estado integer )
+ LANGUAGE plpgsql
+AS $function$
+declare 
+	p_erroneo bool;
+	p_caducado bool;
+	p_proximo bool;
+	p_suspendido bool;
+	p_no_exite bool;
+begin
+	--return query
+	 --Primero Verificar si el test contiene errores 
+	select into p_erroneo case when Count(*)>=1 then true else false end as Verificador
+	from test t 
+	inner join errores_test et  on t.id_test= et.id_test 
+	where et.estado and cast(t.tokens as character varying) = p_token;
+	--y asi ir verificando cada uno de los errores para saber de que tipo son y si se tiene que mostrar el formulario o no skere 
+	
+	--case when Now()>t.fecha_hora_cierre then true else false end as Caducado,
+	select into p_caducado case when Now()>t.fecha_hora_cierre then true else false end as Caducado from test t 
+	where  cast(t.tokens as character varying) = p_token;
+	
+	--para el proximo
+	--	case when Now()<t.fecha_hora_inicio then true else false end as Proximo,
+	select into p_proximo case when Now()<t.fecha_hora_inicio then true else false end as Proximo
+	from test t 
+	where  cast(t.tokens as character varying) = p_token;
+	
+	--para el estado suspendido
+	select into p_suspendido t.suspendio
+	from test t 
+	where  cast(t.tokens as character varying) = p_token;
+
+	--No existe 
+	select into p_no_exite case when Count(*) =0 then true else false end as Existe
+	from test t 
+	where  cast(t.tokens as character varying) = p_token;
+	--'06b20f76-8cc6-457d-beb5-cff15a136e19'
+
+	--select * from test
+	--Preguntar si contiene el error entonces retornar erroneo skere modo diablo 
+	-- Primer IF para verificar p_erroneo
+	if p_erroneo = true then
+		return query
+		select 1; -- Cuando sea erróneo, retornar 1
+	end if;
+	
+	-- Segundo IF para verificar p_caducado
+	if p_caducado = true then
+		return query
+		select 2; -- Cuando sea caducado, retornar 2
+	end if;
+	
+	-- Tercer IF para verificar p_proximo
+	if p_proximo = true then
+		return query
+		select 3; -- Cuando sea próximo, retornar 3
+	end if;
+	--p_suspendido
+	if p_suspendido = true then
+		return query
+		select 4; -- Cuando sea próximo, retornar 3
+	end if;
+if p_no_exite = true then
+		return query
+		select 5; -- Cuando sea próximo, retornar 3
+	end if;
+	-- Si ninguno de los casos anteriores se cumple, retornar 0, quiere decir que es correcto skere modo diablo
+	return query
+	select 0;
+end;
+$function$
+;
+
+
+select * from errores_test et ;
+
+
+--trigger que cuente los ingresos que tiene un usuario segun el test al que esta ingresando 
 
 
 
 
 
+create or replace function FU_TR_controlar_ingresos_usuarios() returns trigger 
+as 
+$$
+---Declarar variables
+declare
+	p_numero_de_ingresos integer;
+	p_ingresos_permitidos integer;
+begin
+	--el numero de ingresos que tiene el usuario en dicho test
+	select into p_numero_de_ingresos COUNT(*) from ingresos i where i.id_participante_test = new.id_participante_test;
+	--el numero de ingresos permitidos por el test skere modo diablo 
+	select into p_ingresos_permitidos t.ingresos_permitidos  from ingresos i
+	inner join participantes_test pt  on i.id_participante_test =pt.id_participante_test 
+	inner join test t on pt.id_test = t.id_test 
+	where i.id_participante_test =new.id_participante_test limit 1;
+	
+	if p_numero_de_ingresos>=p_ingresos_permitidos then 
+			--entonces es porque cumplio con los ingresos permitidos skere modo diablo
+				update participantes_test set supero_limite=true 
+			    where id_participante_test =new.id_participante_test;
+	else
+		update participantes_test set supero_limite=false 
+			    where id_participante_test =new.id_participante_test;
+	end if;
+return new;
+end
+$$
+language 'plpgsql';
+
+create trigger Tr_control_ingresos
+after insert 
+on ingresos
+for each row 
+execute procedure FU_TR_controlar_ingresos_usuarios();
 
 
 
 
 
+-- DROP FUNCTION public.fu_progreso_secciones_tokens(varchar, varchar);
 
+CREATE OR REPLACE FUNCTION public.fu_progreso_secciones_tokens(p_id_toke_particiapnta character varying, p_id_token_test character varying)
+ RETURNS TABLE(r_id_progreso_seccion integer, r_id_seccion integer, r_id_participante_test integer, r_estado_completado boolean, r_bloqueado boolean, r_porcentaje numeric, r_titulo_seccion character varying, r_descripcion_seccion character varying, r_supero_limite bool)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select ps.id_progreso_seccion ,ps.id_seccion ,ps.id_participante_test ,
+		ps.estado_completado ,ps.bloqueado, ps.porcentaje, s.titulo, s.descripcion, pt.supero_limite
+	from test t 
+	inner join participantes_test pt on t.id_test =pt.id_test 
+	inner join progreso_secciones ps on ps.id_participante_test =pt.id_participante_test
+	inner join secciones s on ps.id_seccion = s.id_seccion 
+	where cast(t.tokens as character varying)=p_id_token_test
+	and cast(pt.id_participante as character varying)=p_id_toke_particiapnta;
+end;
+$function$
+;
 
 
 
