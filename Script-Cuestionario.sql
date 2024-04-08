@@ -7986,6 +7986,117 @@ end;
 $function$
 ;
 
+select * from test t where t.id_test = 144;
+
+call sp_editar_test('Progresos Editado1',144,'Descripcion Editada',20,false ,false)
+--Procedimiento almacenado para editar cosas del test skere modo diablo 
+--el procedimiento no editara la fecha de inicio ni la fecha de fin 
+-- DROP PROCEDURE public.sp_insertar_test(varchar, timestamp, timestamp, varchar, varchar, int4, bool, bool);
+
+CREATE OR REPLACE PROCEDURE 
+public.sp_editar_test
+(IN p_titulo character varying, 
+p_id_test int,
+IN p_descripcion character varying,
+IN p_ingresos_permitidos integer,
+IN p_cualquier_entrar boolean, 
+IN p_aleatoria boolean)
+ LANGUAGE plpgsql
+AS $procedure$ 
+declare 
+	p_bool_diferente bool;
+	p_accesos bool;
+BEGIN
+ 	update Test set titulo=p_titulo, descripcion=p_descripcion, Ingresos_Permitidos=p_ingresos_permitidos
+ 					--preguntas_aleatorias=p_aleatoria,
+ 					--abierta=p_cualquier_entrar
+ 					where id_test=p_id_test;
+--Mejor si se envia un tru para cambiar el estado del test cambiarlo skere modo diablo
+ if p_aleatoria then
+ 		select into p_bool_diferente not preguntas_aleatorias from Test where id_test=p_id_test;
+ 		update Test set 
+ 					preguntas_aleatorias=p_bool_diferente
+ 					where id_test=p_id_test;
+ end if;
+--Hacer lo mismo para el tipo de acceso al formulario 
+if p_cualquier_entrar then
+	select into p_accesos not abierta from Test where id_test=p_id_test;
+ 		update Test set 
+ 					abierta=p_accesos
+ 					where id_test=p_id_test;
+end if;
+EXCEPTION
+    -- Si ocurre algún error, revierte la transacción
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM USING HINT = 'Revisa la transacción principal.';
+END;
+$procedure$
+;
+
+--anadir el trigger despues de hacer el update xq se cambia el tipo de ingreso de ingreso del formulario
+--esta funcion solo valida si tiene o no registros de participantes el formulario 
+CREATE OR REPLACE FUNCTION public.fu_tr_test_update()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	p_tiene_participantes bool;
+	p_tiene_registro bool;
+	p_tipo_acceso bool;
+	p_contien_errores bool;
+begin
+	--primero verificar si tiene participantes activos el test
+	 select into p_tiene_participantes case when COunt(*)>0 then true else false end from participantes_test pt 
+ 	where pt.id_test =new.id_test; --and estado ;
+	--Verificar si tiene registro de errores de tipo pariticpantes en la tabla errores_test
+ 	select into p_tiene_registro case when COUNT(*)>0 then true else false 
+	end from errores_test et where et.id_test =new.id_test and et.error_detalle ='El test no contiene participantes';
+	SELECT into p_tipo_acceso abierta FROM test WHERE id_test = new.id_test;	
+	--primero preguntar si el nuevo estado de acceso al test es abierto o registringo 
+    
+IF p_tipo_acceso THEN
+        --si es de tipo abierta borrar el mensaje de error en participantes 
+       update errores_test set estado = false where id_test =new.id_test and error_detalle='El test no contiene participantes';
+    else 
+ 		--si tiene participantes con estado true entonces actualizar el registro de errores_test y poner 
+ 	--false el error contiene participantes
+			if p_tiene_participantes then 
+		 	  	update errores_test set estado = false where id_test =new.id_test and error_detalle='El test no contiene participantes';
+			else 
+			--si no tiene participantes verificar si ya existe el registro para crear o modificarlo 
+				if p_tiene_registro then 
+					--como si tiene registro y el numero de participantes es 0 entonces colocar el estado en false
+					 update errores_test set estado = true where id_test =new.id_test and error_detalle='El test no contiene participantes';
+				else 
+					--como no existe registro entonces crearlo 
+				insert into errores_test(id_test,error_detalle)values(new.id_test,'El test no contiene participantes');
+				end if;
+	 		end if;
+ 	---
+    END IF;	
+   /*
+	select into p_contien_errores case when count(*)>=1 then true else false end as verificacion from errores_test et where et.id_test =new.id_test and et.estado ;
+	if p_contien_errores then 
+		  update test set estado_detalle ='Erroneo' where id_test =new.id_test;
+			else 
+			  update test set estado_detalle ='Verificado' where id_test =new.id_test;
+			end if; 
+		*/
+return new;
+end
+$function$
+;
+
+select * from test where id_test =142;
+
+DROP TRIGGER IF EXISTS tr_test_update ON test;
 
 
 
+
+create  trigger tr_test_update after
+update
+    on
+    public.test for each row execute function fu_tr_test_update()
