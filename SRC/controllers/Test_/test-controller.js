@@ -571,6 +571,24 @@ const editar_test_no_fechas = async (req, res, next) => {
     return res.status(404).json({ error: error.message });
   }
 };
+//funcion para editar la fecha de inicio o de fin de un test skere modo diablo
+const editar_fechas_test = async (req, res, next) => {
+  try {
+    const { p_fecha_hora_update, p_id_test, cual_fecha_editar } = req.body;
+    const result = await pool.query(
+      "call sp_cambiar_fecha_hora_test($1,$2,$3)",
+      [p_fecha_hora_update, p_id_test, cual_fecha_editar]
+    );
+    console.log("A editar:");
+    console.log({ p_fecha_hora_update, p_id_test, cual_fecha_editar });
+    return res.status(200).json({ message: "Se edito las fechas del el test" });
+    //return res.status(200).json(result.rows);
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ error: error.message });
+  }
+};
+
 module.exports = {
   crear_test,
   test_usuario,
@@ -604,4 +622,5 @@ module.exports = {
   Generate_Excel_TODOS,
   Lista_Progreso_Participantes,
   editar_test_no_fechas,
+  editar_fechas_test,
 };
