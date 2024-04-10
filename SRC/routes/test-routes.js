@@ -33,6 +33,7 @@ const {
   Generate_Excel_TODOS,
   Lista_Progreso_Participantes,
   editar_test_no_fechas,
+  editar_fechas_test,
 } = require("../controllers/Test_/test-controller");
 
 //router.post('/Login', verificaUser);
@@ -105,5 +106,7 @@ router.get(
 );
 
 router.post("/EditarTestNoFechas", editar_test_no_fechas);
+//editar_fechas_test
+router.post("/editar_fechas_test", editar_fechas_test);
 
 module.exports = router;

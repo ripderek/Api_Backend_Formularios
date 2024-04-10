@@ -8100,3 +8100,64 @@ create  trigger tr_test_update after
 update
     on
     public.test for each row execute function fu_tr_test_update()
+    
+    
+    select * from errores_test where id_test=142;
+   
+   
+CREATE OR REPLACE FUNCTION public.fu_tr_errores_test()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+declare
+	p_contien_errores bool;
+begin
+	--primer verificar las secciones
+	select into p_contien_errores case when count(*)>=1 then true else false end as verificacion from errores_test et where et.id_test =new.id_test and et.estado ;
+	if p_contien_errores then 
+		  update test set estado_detalle ='Erroneo' where id_test =new.id_test;
+			else 
+			  update test set estado_detalle ='Verificado' where id_test =new.id_test;
+			end if;
+return new;
+end
+$function$
+;
+
+
+
+select * from test t where t.id_test ='142'
+
+---funcion para editar la fecha de inicio y cierre del test 
+-- DROP PROCEDURE public.sp_insertar_test(varchar, timestamp, timestamp, varchar, varchar, int4, bool, bool);
+
+CREATE OR REPLACE PROCEDURE public.sp_cambiar_fecha_hora_test
+( IN p_fecha_hora_update timestamp without time zone,
+  in p_id_test integer, in cual_fecha_editar bool)
+ LANGUAGE plpgsql
+AS $procedure$ 
+
+begin
+	--si el indicar es true entonces actualizar la fecha de inicio sino actualizar la fecha de cierre 
+	if cual_fecha_editar then 
+		update Test set Fecha_hora_inicio=p_fecha_hora_update where id_test=p_id_test;
+	else 
+		update Test set Fecha_hora_cierre=p_fecha_hora_update where id_test=p_id_test;
+	end if;
+
+EXCEPTION
+    -- Si ocurre algún error, revierte la transacción
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM USING HINT = 'Revisa la transacción principal.';
+END;
+$procedure$
+;
+
+
+--colocar los disparadores para controlar las actualizaciones de las fechas
+create trigger tr_test_validar_fechas_update before
+update
+    on
+    public.test for each row execute function fu_tr_test_validar_fechas()
+
