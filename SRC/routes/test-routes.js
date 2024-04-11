@@ -34,6 +34,7 @@ const {
   Lista_Progreso_Participantes,
   editar_test_no_fechas,
   editar_fechas_test,
+  eliminar_seccion_test,
 } = require("../controllers/Test_/test-controller");
 
 //router.post('/Login', verificaUser);
@@ -108,5 +109,7 @@ router.get(
 router.post("/EditarTestNoFechas", editar_test_no_fechas);
 //editar_fechas_test
 router.post("/editar_fechas_test", editar_fechas_test);
+//eliminar_seccion_test
+router.post("/eliminar_seccion_test", eliminar_seccion_test);
 
 module.exports = router;
