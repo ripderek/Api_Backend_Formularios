@@ -7,6 +7,7 @@ const {
   preguntas_niveles_seccion_id,
   data_editable,
   editar_seccion_op,
+  agg_invitado_seccion,
 } = require("../controllers/Secciones/secciones-controller");
 const { route } = require("./auth-routes");
 
@@ -19,5 +20,7 @@ router.get("/PreguntasNivelSeccion/:id", preguntas_niveles_seccion_id);
 router.get("/data_editable/:id", data_editable);
 //editar_seccion_op
 router.post("/editar_seccion_op", editar_seccion_op);
+//agregar invitado a seccion
+router.post("/Invitado_Seccion", agg_invitado_seccion);
 
 module.exports = router;
