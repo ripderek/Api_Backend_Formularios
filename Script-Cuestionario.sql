@@ -8161,3 +8161,8 @@ update
     on
     public.test for each row execute function fu_tr_test_validar_fechas()
 
+    
+--funcion para eliminar unas seccion de un test 
+select * from te    
+    
+    

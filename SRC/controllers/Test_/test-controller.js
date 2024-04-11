@@ -588,6 +588,22 @@ const editar_fechas_test = async (req, res, next) => {
     return res.status(404).json({ error: error.message });
   }
 };
+//funcion para eliminar una secion de un test
+const eliminar_seccion_test = async (req, res, next) => {
+  try {
+    const { p_id_test, p_id_seccion } = req.body;
+    const result = await pool.query("call SP_Eliminar_seccion_test($1,$2)", [
+      p_id_test,
+      p_id_seccion,
+    ]);
+
+    return res.status(200).json({ message: "Se elimino la seccion del test" });
+    //return res.status(200).json(result.rows);
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ error: error.message });
+  }
+};
 
 module.exports = {
   crear_test,
@@ -623,4 +639,5 @@ module.exports = {
   Lista_Progreso_Participantes,
   editar_test_no_fechas,
   editar_fechas_test,
+  eliminar_seccion_test,
 };
