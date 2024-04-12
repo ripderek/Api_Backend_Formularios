@@ -91,6 +91,25 @@ const preguntas_niveles_seccion_id = async (req, res, next) => {
   }
 };
 
+//funcion para agregar un invitado a una seccion mediante un usuario
+const agg_invitado_seccion = async (req, res, next) => {
+  try {
+    //const { id } = req.params;
+    const { p_id_seccion, p_id_usuario_invi } = req.body;
+    const result = await pool.query("call sp_agg_invitado_seccion($1,$2)", [
+      p_id_seccion,
+      p_id_usuario_invi,
+    ]);
+    return res
+      .status(200)
+      .json({ message: "Se agrego el invitado a la sección" });
+    //return res.status(200).json(result.rows);
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ error: error.message });
+  }
+};
+
 module.exports = {
   secciones_usuario,
   crear_seccion_usuario,
@@ -98,4 +117,5 @@ module.exports = {
   preguntas_niveles_seccion_id,
   data_editable,
   editar_seccion_op,
+  agg_invitado_seccion,
 };
