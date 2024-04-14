@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Correo de prueba</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+        }
+        /* Estilos adicionales aquí */
+        .container {
+            text-align: center; /* Centrar el contenido del contenedor */
+        }
+        .academy-btn {
+            display: inline-block;
+            min-width: 160px;
+            height: 65px;
+            color: #ffffff;
+            border: none;
+            border-radius: 0;
+            padding: 0 40px;
+            margin-left: 40px;
+            align-items: center;
+            
+            text-align: center;
+            font-size: 25px;
+            font-style: normal;
+            text-decoration: none;
+            line-height: 65px;
+            -webkit-transition: all 500ms;
+            transition: all 500ms;
+            background: #61ba6d;
+            background-image: -webkit-linear-gradient(left, #61ba6d 0%, #83c331 51%, #61ba6d 100%);
+            background-image: linear-gradient(to right, #61ba6d 0%, #83c331 51%, #61ba6d 100%);
+            font-weight: 600; 
+        }
+        
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>Cuestionarios App</h1>
+        <p>Hola, {{nombre}} para continuar a la aplicacion necesitas verificar tu cuenta dando click en el siguiente boton</p>
+        <a href="{{enlace}}" class="btn academy-btn">Verificar Cuenta</a>
+    </div>
+</body>
+</html>
