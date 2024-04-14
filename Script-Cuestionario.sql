@@ -8163,6 +8163,363 @@ update
 
     
 --funcion para eliminar unas seccion de un test 
-select * from te    
-    
-    
+select * from test_secciones ts where ts.id_test =142;
+
+--procedimiento almacenado para eliminar una seccion 
+    Create or Replace Procedure SP_Eliminar_seccion_test(
+    in p_id_test integer, in p_id_seccion integer
+    )
+Language 'plpgsql'
+AS $$
+begin
+		delete  from test_secciones ts where ts.id_test =p_id_test and id_seccion=p_id_seccion;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+
+select * from usuario u;
+
+
+-- DROP PROCEDURE public.crear_usuario(varchar, varchar, varchar, varchar, varchar, varchar);
+
+CREATE OR REPLACE PROCEDURE public.crear_usuario
+	(IN p_contrasena character varying,
+	IN p_correo_institucional character varying,
+	IN p_identificacion character varying, 
+	IN p_nombres_apellidos character varying,
+	IN p_celular character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+
+Begin
+	insert into usuario(
+						contra,
+						correo_institucional,
+						identificacion,
+						nombres_apellidos,
+						numero_celular,
+						tipo_identificacion
+						)values
+						(
+						 PGP_SYM_ENCRYPT(p_contrasena::text,'SGDV_KEY'),
+						 p_correo_institucional,
+						 p_identificacion,
+						 p_nombres_apellidos,
+						 p_celular,
+						 'Cedula'
+						);
+
+EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+
+END;
+$procedure$
+;
+
+--hacer un trigger que verifique los dominios permitidos para que los usuarios se puedan registrar 
+-- DROP FUNCTION public.fu_tr_insert_usuario();
+
+CREATE OR REPLACE FUNCTION public.fu_tr_insert_usuario()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+declare 
+	p_dominio character varying;
+begin
+	if trim(new.nombres_apellidos)='' then
+            raise exception 'Nombres no puede ser vacio';
+    end if;
+    if new.identificacion  ~ '[^0-9]' then 
+        raise exception 'Identificacion solo puede contener numeros';
+    end if;
+    if new.numero_celular  ~ '[^0-9]' then 
+        raise exception 'Celular solo puede contener numeros';
+    end if;
+    if length(new.numero_celular) <> 10 then
+        raise exception 'Celular debe tener 10 digitos';
+    end if; 
+    if trim(new.correo_institucional)='' then
+            raise exception 'Correo institucional no puede ser vacio';
+    end if;
+   	if trim(new.tipo_identificacion)='' then
+            raise exception 'Tipo de identificación no puede ser vacio';
+    end if;
+    --validar el tamano de la identificacion dependiendo del tipo
+    if(new.tipo_identificacion='Cedula')then
+        if length(new.identificacion)<>10 then
+                    raise exception 'Cedula requiere 10 digitos';
+        end if;
+    end if;
+    if(new.tipo_identificacion='Ruc')then
+        if length(new.identificacion)<>13 then
+                    raise exception 'Ruc requiere 13 digitos';
+        end if;
+    end if;
+    if(new.tipo_identificacion='Pasaporte')then
+        if length(new.identificacion)<>12 then
+                    raise exception 'Pasaporte requiere 12 digitos';
+        end if;
+    end if;
+   --crear una exepcion cuando el correo que se quiere ingresar no pertenece a la UTEQ 
+   --new.correo_institucional
+    p_dominio := SUBSTRING(NEW.correo_institucional, strpos(NEW.correo_institucional, '@') + 1);
+   --comparar el dominio 
+   if p_dominio <>'uteq.edu.ec' then 
+     raise exception 'El dominio del correo no pertenece a la empresa';
+   end if;
+   
+return new;
+end
+$function$
+;
+
+
+select * from interfaz_usuario iu ;
+select * from usuario u ;
+--añadir un campo para saber si la cuenta es verificada o no skere modo diablo
+--si no esta verificada entonces no dar paso al inicio de sesion 
+
+alter table usuario
+add column CuentaVerificada bool  default false;
+
+
+ALTER TABLE usuario
+ALTER COLUMN CuentaVerificada SET NOT NULL;
+
+
+-- DROP FUNCTION public.verification_auth(varchar, varchar);
+
+CREATE OR REPLACE FUNCTION public.verification_auth(email character varying, contra1 character varying)
+ RETURNS TABLE(verification integer, mensaje character varying)
+ LANGUAGE plpgsql
+AS $function$
+declare
+	User_Deshabili bool;
+	User_Exit bool;
+	User_Verificado bool;
+begin
+	--Primero Verificar si el correo que se esta ingresando existe
+	select into User_Exit case when COUNT(*)>=1 then True else false end  from usuario where correo_institucional=email;	
+	select into User_Verificado CuentaVerificada from usuario where correo_institucional  = email 
+			and  PGP_SYM_DECRYPT(contra ::bytea, 'SGDV_KEY') = contra1
+   			and estado=true;
+   	--verficiar que la cuenta este verificada 
+   	if User_Verificado=false then 
+   					return query
+   					select cast(5 as int), cast('La cuenta no esta verificada' as varchar(500));
+   	end if ;
+	--Segundo  Verificar si el usuario tiene un estado habilitado o deshabilitado
+	if (User_Exit) then 
+		select into User_Deshabili estado from usuario where correo_institucional=email;
+		if (User_Deshabili) then 
+			return query
+			select
+			cast(case when COUNT(*)>=1 then 1 else 2 end as int),
+			 cast(case when COUNT(*)>=1 then 'Login Correcto' else 'Contraseña incorrecta' end as varchar(500))
+			from usuario
+			where correo_institucional  = email 
+			and  PGP_SYM_DECRYPT(contra ::bytea, 'SGDV_KEY') = contra1
+   			and estado=true;
+   		else 
+   			return query
+			select cast(3 as int), cast('Usuario deshabilitado contacte con un administrador' as varchar(500));
+		end if;
+	else 
+	   		return query
+			select cast(4 as int), cast('Este correo no esta registrado' as varchar(500));
+	end if;
+end;
+$function$
+;
+
+
+select * from usuario u  ;
+select * from interfaz_usuario iu ;
+
+--funcion que retorne el id del usuario segun el correo ingresado 
+--drop FUNCTION public.RetornoIDUserGmail(email character varying)
+CREATE OR REPLACE FUNCTION public.RetornoIDUserGmail(email character varying)
+ RETURNS TABLE( mensaje character varying, nombreUser character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+   	return query
+    select cast(id_user as character varying),nombres_apellidos  from usuario u where correo_institucional =email;
+end;
+$function$
+;
+
+select * from RetornoIDUserGmail('rcoelloc2@uteq.edu.ec');
+
+
+
+--hacer una funcion para verificar la cuenta 
+
+select * from usuario u 
+
+call verificar_cuenta('3b43792d-ec18-49a5-b8af-753c65cb9b21');
+
+CREATE OR REPLACE PROCEDURE public.verificar_cuenta
+	(IN p_token character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+declare verification bool;
+Begin
+	--primero preguntar si esa cuenta existe para poderla modificar 
+	select into verification case when COUNT(*)>0 then true else false end as Verification
+	from usuario u where cast (u.id_user as character varying) =p_token;
+	if verification then
+	--hacer la veri	ficacion del usuario 
+		update usuario set CuentaVerificada=true where cast (id_user as character varying) =p_token;
+	else 
+		--crear una exepcion porque el token del usuario no existe 
+		 raise exception 'Este usuario no existe';
+	end if;
+EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+
+END;
+$procedure$
+;
+
+
+--aqui para agregar usuarios invitados a las seccion para que puedan crear niveles y preguntas
+select * from secciones_usuario;
+
+--funcion que retorne la lista de usuarios segun el id del test 
+
+
+
+
+select * from participantes_test_id_test(54);
+
+CREATE OR REPLACE FUNCTION public.participantes_test_id_test(p_id_seccion integer)
+ RETURNS TABLE( toke_user character varying, nombreUser character varying, correo_user character varying, isadmin bool)
+ LANGUAGE plpgsql
+AS $function$
+begin
+   	return query
+		select
+		cast(u.id_user as character varying),
+		u.nombres_apellidos ,
+		u.correo_institucional ,
+		u.isadmin
+		from secciones_usuario su 
+		inner join usuario u  on su.id_usuario =u.id_user 
+		where su.id_seccion =p_id_seccion order by su.admin_seccion desc;
+end;
+$function$
+;
+
+
+
+select
+		cast(u.id_user as character varying),
+		u.nombres_apellidos ,
+		u.correo_institucional ,
+		u.isadmin
+		from secciones_usuario su 
+		inner join usuario u  on su.id_usuario =u.id_user 
+		where su.id_seccion =54 order by su.admin_seccion desc;
+	
+--funcion que retorne la informacion del usuario con respecto a esa secion 
+CREATE OR REPLACE FUNCTION public.informacion_seccion_usuario(p_id_seccion integer, p_id_usuario character varying)
+ RETURNS table
+ (isadmin bool)
+ LANGUAGE plpgsql
+AS $function$
+begin
+   	return query
+		select 
+		u.admin_seccion 
+		from secciones_usuario u 
+	   where u.id_seccion =p_id_seccion and 
+       cast(u.id_usuario as character varying)=p_id_usuario;
+end;
+$function$
+;
+
+
+--funcion para eliminar a un participante de una seccion 
+
+
+CREATE OR REPLACE PROCEDURE public.eliminar_usuario_seccion
+	(IN p_token character varying, in p_id_seccion integer)
+ LANGUAGE plpgsql
+AS $procedure$
+declare verification bool;
+Begin
+	delete from secciones_usuario where id_seccion=p_id_seccion and cast(id_usuario as character varying)=p_token;
+EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+
+END;
+$procedure$
+;
+
+--funcion para buscar participantes y agregarlos a la seccion para crear preguntas y niveles 
+
+
+--or (identificacion ILIKE '%' || p_palabra_clave || '%') or (numero_celular ILIKE '%' || p_palabra_clave || '%')) and estado
+
+--buscar usuario por filtros 
+--drop FUNCTION public.search_users(p_palabra_clave character varying)
+CREATE OR REPLACE FUNCTION public.search_users(p_palabra_clave character varying)
+ RETURNS table
+ ( toke_user character varying,nombreuser character varying, correo_user character varying, isadmin bool )
+ LANGUAGE plpgsql
+AS $function$
+begin
+   	return query
+		select cast (u.id_user as character varying),
+		u.nombres_apellidos ,
+		u.correo_institucional ,
+		cast(false as bool)
+		from usuario u where 
+		(nombres_apellidos ILIKE '%' || p_palabra_clave || '%') or 
+		(identificacion ILIKE '%' || p_palabra_clave || '%') or
+		(correo_institucional ILIKE '%' || p_palabra_clave || '%') or
+		(numero_celular ILIKE '%' || p_palabra_clave || '%') ;
+end;
+$function$
+;
+
+select * 
+		from usuario u
+select * from search_users('rcoello')
+
+--agregar usuario a la seccion
+select * from secciones_usuario su ;
+
+
+CREATE OR REPLACE PROCEDURE public.agregar_usuario_seccion
+	(IN p_token character varying, in p_id_seccion integer)
+ LANGUAGE plpgsql
+AS $procedure$
+declare verification bool;
+Begin
+	delete from secciones_usuario where id_seccion=p_id_seccion and cast(id_usuario as character varying)=p_token;
+EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+
+END;
+$procedure$
+;
+

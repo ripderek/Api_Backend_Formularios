@@ -2,7 +2,8 @@ const pool = require("../../db");
 const jwt = require("jsonwebtoken");
 //const { publicIp, publicIpv4, publicIpv6 } = require('public-ip');
 //const { publicIpv4 } = require('public-ip');
-
+const nodemailer = require("nodemailer");
+const fs = require("fs");
 //const publicIp = require('public-ip');
 
 const { serialize } = require("cookie");
@@ -31,6 +32,83 @@ const obtenerIPV4 = async (req, res, next) => {
     console.error("Error al importar public-ip:", error);
     return res.status(500).json({ error: "Error al importar public-ip" });
   }
+};
+const crear_usuario = async (req, res, next) => {
+  try {
+    //const { id } = req.params;
+    const {
+      p_contrasena,
+      p_correo_institucional,
+      p_identificacion,
+      p_nombres_apellidos,
+      p_celular,
+    } = req.body;
+    console.log(req.body);
+    const result = await pool.query("call crear_usuario($1,$2,$3,$4,$5)", [
+      p_contrasena,
+      p_correo_institucional,
+      p_identificacion,
+      p_nombres_apellidos,
+      p_celular,
+    ]);
+    //llamar a la funcion que envia el correo electronico con las credencidales skere modo diablo
+    EnviarVerificacion(p_correo_institucional);
+    return res.status(200).json({ message: "Se creó un Usuario" });
+    //return res.status(200).json(result.rows);
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ error: error.message });
+  }
+};
+//enviar correo de verificacion del usuario
+let transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: "raulshide02@gmail.com",
+    pass: "iscn evwa qbra vyzt",
+  },
+});
+const EnviarVerificacion = async (correoDestino) => {
+  const result = await pool.query("select * from RetornoIDUserGmail($1)", [
+    correoDestino,
+  ]);
+  console.log(result.rows[0].mensaje);
+  console.log(correoDestino);
+  // Leer el contenido del archivo correo.html
+  fs.readFile("correo.html", "utf8", (err, data) => {
+    if (err) {
+      console.error("Error al leer el archivo:", err);
+      return;
+    }
+    //Consultar el id del usuario para enviarlo en el boton skere
+
+    // Reemplazar el marcador de posición con el valor de la variable
+    let nombre = result.rows[0].mensaje;
+    let id_u = result.rows[0].nombreuser;
+    let enlace = "http://localhost:3000/Verification/" + nombre;
+    let contenidoCorreo = data
+      .replace("{{nombre}}", id_u)
+      .replace("{{enlace}}", enlace);
+
+    // Configurar el contenido del correo electrónico con el contenido modificado del archivo HTML
+    let mailOptions = {
+      from: "raulshide02@gmail.com",
+      // to: "correoDestino",
+      // to: "rcoelloc2@uteq.edu.ec",
+      to: correoDestino,
+      subject: "Verificacion de la cuenta en Cuestionarios App",
+      html: contenidoCorreo,
+    };
+
+    // Enviar el correo electrónico
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.log(error);
+      } else {
+        console.log("Correo enviado: " + info.response);
+      }
+    });
+  });
 };
 
 //VerficarUsuario y otorgar token
@@ -273,6 +351,21 @@ const verificaUserGoogle = async (req, res, next) => {
   }
 };
 
+//funcion para verificar una cuenta
+const verificar_cuenta = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    console.log(token);
+    const result = await pool.query("call verificar_cuenta($1)", [token]);
+    //console.log(result.rows);
+    return res
+      .status(200)
+      .json({ message: "Se verifico la cuenta del usuario" });
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+};
+
 module.exports = {
   verificaUser,
   prueba_conexion,
@@ -281,4 +374,6 @@ module.exports = {
   login_register_participante,
   obtenerIPV4,
   estado_formulario_token,
+  crear_usuario,
+  verificar_cuenta,
 };

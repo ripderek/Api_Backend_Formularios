@@ -8,6 +8,10 @@ const {
   data_editable,
   editar_seccion_op,
   agg_invitado_seccion,
+  participantes_test_id_test,
+  informacion_participante_test,
+  eliminar_usuario_seccion,
+  search_usuarios,
 } = require("../controllers/Secciones/secciones-controller");
 const { route } = require("./auth-routes");
 
@@ -22,5 +26,15 @@ router.get("/data_editable/:id", data_editable);
 router.post("/editar_seccion_op", editar_seccion_op);
 //agregar invitado a seccion
 router.post("/Invitado_Seccion", agg_invitado_seccion);
-
+//participantes_test_id_test
+router.get("/participantes_test_id_test/:id", participantes_test_id_test);
+//informacion_participante_test
+router.get(
+  "/informacion_participante_test/:id_test/:tokenUsuar",
+  informacion_participante_test
+);
+//eliminar_usuario_seccion
+router.post("/eliminar_usuario_seccion", eliminar_usuario_seccion);
+//search_usuarios
+router.get("/search_usuarios/:palabra_clave", search_usuarios);
 module.exports = router;
