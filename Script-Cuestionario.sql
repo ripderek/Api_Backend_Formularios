@@ -8096,7 +8096,7 @@ DROP TRIGGER IF EXISTS tr_test_update ON test;
 
 
 
-create  trigger tr_test_update after
+create or replace trigger tr_test_update after
 update
     on
     public.test for each row execute function fu_tr_test_update()
@@ -8156,7 +8156,7 @@ $procedure$
 
 
 --colocar los disparadores para controlar las actualizaciones de las fechas
-create trigger tr_test_validar_fechas_update before
+create or replace trigger tr_test_validar_fechas_update before
 update
     on
     public.test for each row execute function fu_tr_test_validar_fechas()
@@ -8523,3 +8523,85 @@ END;
 $procedure$
 ;
 
+select * from usuario u ;
+
+
+--modificar la funcion para que solo muestre las secciones de un usuario mediante el token
+-- DROP FUNCTION public.fu_secciones_disponibles_test(p_token_usuario character varying)
+select * from fu_secciones_disponibles_test('3b43792d-ec18-49a5-b8af-753c65cb9b21')
+CREATE OR REPLACE FUNCTION public.fu_secciones_disponibles_test(p_token_usuario character varying)
+ RETURNS TABLE(r_id_seccion integer, r_titulo character varying, r_num_niveles integer, r_autor character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select s.id_seccion, s.titulo, cast ((select COUNT(*) from 
+								(select n.id_nivel, n.id_seccion, n.nivel  from niveles n 
+								inner join preguntas p on n.id_nivel = p.id_nivel
+									inner join respuestas r on p.id_pregunta=r.id_pregunta
+								where n.estado 	and n.estado and p.estado and p.error = false and r.estado
+								and n.id_seccion=s.id_seccion
+								group by n.id_nivel, n.id_seccion, n.nivel ) as x
+								)as int) as num_niveles, cast('Eres participante' as character varying) as Autori
+	from secciones s
+	inner join niveles n on n.id_seccion=s.id_seccion	
+	inner join preguntas p on n.id_nivel = p.id_nivel
+	inner join respuestas r on p.id_pregunta=r.id_pregunta
+	inner join secciones_usuario su on s.id_seccion = su.id_seccion
+	and s.Publico 
+	where s.estado and n.estado and p.estado and p.error = false and r.estado and cast (su.id_usuario as character varying )=p_token_usuario
+	group by s.id_seccion, s.titulo; 
+end;
+$function$
+;
+
+select * from secciones_usuario su 
+--La misma funcion pero ahora se le agrega la busqueda por palabra clave y el nombre del admin skere 
+
+
+select * from fu_secciones_disponibles_test_busqueda('Memoria');
+--DROP FUNCTION public.fu_secciones_disponibles_test_busqueda(p_palabra_clave character varying)
+CREATE OR REPLACE FUNCTION public.fu_secciones_disponibles_test_busqueda(p_palabra_clave character varying)
+ RETURNS TABLE(r_id_seccion integer, r_titulo character varying, r_num_niveles integer, r_autor character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select s.id_seccion, s.titulo, cast ((select COUNT(*) from 
+								(select n.id_nivel, n.id_seccion, n.nivel  from niveles n 
+								inner join preguntas p on n.id_nivel = p.id_nivel
+									inner join respuestas r on p.id_pregunta=r.id_pregunta
+								where n.estado 	and n.estado and p.estado and p.error = false and r.estado
+								and n.id_seccion=s.id_seccion
+								group by n.id_nivel, n.id_seccion, n.nivel ) as x
+								)as int) as num_niveles, u.nombres_apellidos
+	from secciones s
+	inner join niveles n on n.id_seccion=s.id_seccion	
+	inner join preguntas p on n.id_nivel = p.id_nivel
+	inner join respuestas r on p.id_pregunta=r.id_pregunta
+	inner join secciones_usuario su on s.id_seccion = su.id_seccion
+	inner join usuario u on su.id_usuario = u.id_user
+	where s.estado and n.estado and p.estado and p.error = false and r.estado 
+	and su.admin_seccion 
+	and s.Publico 
+	and (s.titulo ILIKE '%' || p_palabra_clave || '%') or (u.nombres_apellidos  ILIKE '%' || p_palabra_clave || '%')
+	--and cast (su.id_usuario as character varying )=p_token_usuario
+	group by s.id_seccion, s.titulo, u.nombres_apellidos; 
+--(numero_celular ILIKE '%' || p_palabra_clave || '%') ;
+end;
+$function$
+;
+
+
+select * from secciones_usuario
+select * from usuario u 
+
+
+alter table secciones
+add column Publico bool  default true;
+
+
+ALTER TABLE secciones
+ALTER COLUMN Publico SET NOT NULL;
+
+select * from secciones s 
