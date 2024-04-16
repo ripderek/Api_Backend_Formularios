@@ -26,6 +26,7 @@ const data_editable = async (req, res, next) => {
     ]);
     return res.status(200).json(result.rows[0]);
   } catch (error) {
+    console.log(error);
     return res.status(404).json({ message: error.message });
   }
 };
@@ -67,9 +68,26 @@ const editar_seccion_op = async (req, res, next) => {
 };
 //listar las secciones disponibles para ser seleccionadas a un test
 const secciones_disponibles_test = async (req, res, next) => {
+  //recibe como parametro el token del usuario
   try {
+    const { token } = req.params;
     const result = await pool.query(
-      "select * from fu_secciones_disponibles_test()"
+      "select * from fu_secciones_disponibles_test($1)",
+      [token]
+    );
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+};
+//search setcion with word key?
+const search_setcion_with_key = async (req, res, next) => {
+  //recibe como parametro el token del usuario
+  try {
+    const { key } = req.params;
+    const result = await pool.query(
+      "select * from fu_secciones_disponibles_test_busqueda($1)",
+      [key]
     );
     return res.status(200).json(result.rows);
   } catch (error) {
@@ -180,4 +198,5 @@ module.exports = {
   informacion_participante_test,
   eliminar_usuario_seccion,
   search_usuarios,
+  search_setcion_with_key,
 };
