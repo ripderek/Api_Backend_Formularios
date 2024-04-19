@@ -52,12 +52,19 @@ const crear_seccion_usuario = async (req, res, next) => {
 const editar_seccion_op = async (req, res, next) => {
   try {
     //const { id } = req.params;
-    const { p_titulo, p_descripcion, p_new_Estado, p_id_seccion } = req.body;
-    const result = await pool.query("call SP_Editar_Seccion($1,$2,$3,$4)", [
+    const {
       p_titulo,
       p_descripcion,
       p_new_Estado,
       p_id_seccion,
+      p_visibilidad,
+    } = req.body;
+    const result = await pool.query("call SP_Editar_Seccion($1,$2,$3,$4,$5)", [
+      p_titulo,
+      p_descripcion,
+      p_new_Estado,
+      p_id_seccion,
+      p_visibilidad,
     ]);
     return res.status(200).json({ message: "Se edito la sección" });
     //return res.status(200).json(result.rows);

@@ -8548,7 +8548,7 @@ begin
 	inner join preguntas p on n.id_nivel = p.id_nivel
 	inner join respuestas r on p.id_pregunta=r.id_pregunta
 	inner join secciones_usuario su on s.id_seccion = su.id_seccion
-	and s.Publico 
+	--and s.Publico 
 	where s.estado and n.estado and p.estado and p.error = false and r.estado and cast (su.id_usuario as character varying )=p_token_usuario
 	group by s.id_seccion, s.titulo; 
 end;
@@ -8585,6 +8585,7 @@ begin
 	and su.admin_seccion 
 	and s.Publico 
 	and (s.titulo ILIKE '%' || p_palabra_clave || '%') or (u.nombres_apellidos  ILIKE '%' || p_palabra_clave || '%')
+	and s.Publico
 	--and cast (su.id_usuario as character varying )=p_token_usuario
 	group by s.id_seccion, s.titulo, u.nombres_apellidos; 
 --(numero_celular ILIKE '%' || p_palabra_clave || '%') ;
@@ -8605,3 +8606,151 @@ ALTER TABLE secciones
 ALTER COLUMN Publico SET NOT NULL;
 
 select * from secciones s 
+
+
+update secciones set Publico= false where id_seccion =60
+
+
+select * from secciones s ;
+select * from usuario u;
+
+-- DROP FUNCTION public.fu_info_edit_section(int4);
+
+CREATE OR REPLACE FUNCTION public.fu_info_edit_section(p_id_seccion integer)
+ RETURNS TABLE(r_descripcion character varying, r_titulo character varying, r_estado boolean, r_publico boolean)
+ LANGUAGE plpgsql
+AS $function$
+
+begin
+			return query
+			select s.descripcion, s.titulo ,s.Estado, s.Publico
+				from secciones s where s.id_seccion =p_id_seccion;
+end;
+$function$
+;
+
+select * from secciones s 
+select * from fu_info_edit_section(56);
+
+--añadir para editar el nuevo dato 
+-- DROP PROCEDURE public.sp_editar_seccion(varchar, varchar, bool, int4, bool);
+
+CREATE OR REPLACE PROCEDURE public.sp_editar_seccion(
+IN p_titulo character varying,
+IN p_descripcion character varying, 
+IN p_new_estado boolean, 
+IN p_id_seccion integer, 
+in p_visibilidad bool)
+ LANGUAGE plpgsql
+AS $procedure$
+
+begin
+	--Editar la seccion
+	update secciones set titulo=p_titulo, descripcion=p_descripcion, estado=p_new_Estado, publico=p_visibilidad where id_seccion=p_id_seccion;
+	
+--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+-- DROP FUNCTION public.fu_secciones_usuario(varchar);
+
+CREATE OR REPLACE FUNCTION public.fu_secciones_usuario(p_idu character varying)
+ RETURNS TABLE(r_id_seccion integer, r_titulo character varying, r_descripcion character varying, r_admin_seccion boolean, r_estado boolean,r_visibilidad bool ,r_erroneo boolean)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select s.id_seccion ,s.titulo ,s.descripcion, su.admin_seccion,s.estado,s.publico,
+	--Para identificar si la seccion tiene algun tipo de error 
+	(select 
+case when COUNT(*)>=1 then true --indica que si hay un error
+else 
+	--hacer otro case when que cuente todas las preguntas para ver si da un error
+	case when (select COUNT(*) from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+where n.id_seccion =s.id_seccion and p.error ) = 0 then false else true end 
+end as Verificador
+from 
+(select 
+n.id_nivel,
+(select Count(*) from preguntas p where n.id_nivel=p.id_nivel) as ContadorPreguntas
+from niveles n 
+where n.id_seccion =s.id_seccion and (select Count(*) from preguntas p where n.id_nivel=p.id_nivel)=0) as X
+)
+	from secciones s  
+	inner join secciones_usuario su on s.id_seccion = su.id_seccion  
+	where cast(su.id_usuario as varchar(800)) = p_idu;
+end;
+$function$
+;
+
+select * from usuario u 
+
+
+select * from extra_pregunta ep 
+
+--controlar si es "../../uploads/preguntas/undefined" entonces no crear la pregunta skere 
+CREATE OR REPLACE FUNCTION public.fu_tr_insert_extras_pregunta()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+	if trim(new.extra)='' then
+            raise exception 'El campo extra no puede estar vacio';
+    end if;
+   if new.extra='../../uploads/preguntas/undefined' then
+            raise exception 'Tiene que insertar una imagen valida';
+    end if;
+   if new.tiempo_enunciado<5 then 
+   			raise exception 'El tiempo no puede ser menor a 5 segundos';
+   end if;
+return new;
+end
+$function$
+;
+
+create trigger TR_update_extra_pregunta
+before update 
+on extra_pregunta
+for each row 
+execute procedure fu_tr_insert_extras_pregunta();
+
+
+select * from respuestas r order by id_respuesta  desc
+--lo mismo para las respuestas: ../../uploads/respuestas/undefined
+--../../uploads/respuestas/undefined
+
+CREATE OR REPLACE FUNCTION public.fu_tr_insert_or_updare_respuestas()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+	if trim(new.extra)='' then
+            raise exception 'El campo extra no puede estar vacio';
+    end if;
+   if new.extra='../../uploads/preguntas/undefined' then
+            raise exception 'Tiene que insertar una imagen valida';
+    end if;
+   if new.tiempo_enunciado<5 then 
+   			raise exception 'El tiempo no puede ser menor a 5 segundos';
+   end if;
+return new;
+end
+$function$
+;
+
+create trigger TR_update_extra_pregunta
+before update 
+on extra_pregunta
+for each row 
+execute procedure fu_tr_insert_extras_pregunta();
+
+
+select * from test_niveles tn 
