@@ -8754,3 +8754,290 @@ execute procedure fu_tr_insert_extras_pregunta();
 
 
 select * from test_niveles tn 
+
+
+
+
+-- DROP FUNCTION public.fu_numeros_preguntas_validad_seccion(int4);
+
+CREATE OR REPLACE FUNCTION public.fu_numeros_preguntas_validad_seccion(p_id_seccion integer)
+ RETURNS TABLE(r_id_nivel integer, r_id_seccion integer, r_nivel character varying, r_total_preguntas integer, r_num_preguntas integer)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select  X.id_nivel_,p_id_seccion ,cast(CONCAT('Nivel ', CAST(X.nivel_ AS VARCHAR)) as varchar(100)),cast(Count(distinct p.id_pregunta)as int), cast(Count(distinct p.id_pregunta)as int)
+	from 
+	(select n.nivel as nivel_, n.id_nivel as id_nivel_
+	from preguntas pp 
+	inner join niveles n ON n.id_nivel = pp.id_nivel 
+	where n.id_seccion =p_id_seccion
+	group by n.nivel, n.id_nivel order by n.nivel asc) as X 
+	inner join preguntas p on X.id_nivel_= p.id_nivel
+	inner join respuestas r on p.id_pregunta =r.id_pregunta
+	group by X.nivel_, X.id_nivel_;
+	--antiguo
+	/*
+	SELECT
+    n.id_nivel,
+    n.id_seccion,
+    cast(CONCAT('Nivel ', CAST(n.nivel AS VARCHAR)) as varchar(100)) AS nivel,
+    cast(COUNT(p.id_nivel)as int) AS total_preguntas
+	FROM
+    niveles n
+	LEFT JOIN
+    preguntas p ON n.id_nivel = p.id_nivel
+    LEFT join
+    respuestas r on p.id_pregunta = r.id_pregunta 
+	WHERE
+    n.id_seccion = 58
+    and r.correcta 
+	GROUP BY
+    n.id_nivel, n.id_seccion, n.nivel, r.id_pregunta 
+	ORDER BY
+    n.id_nivel;
+   */
+end;
+$function$
+;
+
+--actualizar la funcion xq ahora el 3er parametro es un JSON con el nivel y el numero
+--de preguntas por nivel que obtendra esa seccion 
+-- DROP PROCEDURE public.sp_ingresar_seccion_test(int4, int4, int4);
+select * from niveles n ;
+select * from test_niveles tn ;
+
+CREATE OR REPLACE PROCEDURE public.sp_ingresar_seccion_test(IN p_id_test integer, IN p_id_seccion integer, IN p_numero_preguntas JSON)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	p_cantidad_niveles int;
+	p_p_numero_preguntas json;
+	p_p_p_numero_preguntas json;
+	r_id_nivel integer;
+	r_num_preguntas integer;
+	r_total_preguntas integer;
+	r_nivel character varying;
+	p_id_test_secciones integer;
+begin
+	--primero obtener la cantidad de niveles disponibles en dicha seccion, es decir, los que no tengan ningun error y esten en estado true
+	select into p_cantidad_niveles Count(*) as numNiveles from
+	(SELECT
+    n.id_nivel,
+    n.id_seccion,
+    cast(CONCAT('Nivel ', CAST(n.nivel AS VARCHAR)) as varchar(100)) AS nivel,
+    cast(COUNT(p.id_nivel)as int) AS total_preguntas
+	FROM
+    niveles n
+	LEFT JOIN
+    preguntas p ON n.id_nivel = p.id_nivel
+    LEFT join
+    respuestas r on p.id_pregunta = r.id_pregunta 
+	WHERE
+    n.id_seccion = p_id_seccion
+    and r.correcta 
+	GROUP BY
+    n.id_nivel, n.id_seccion, n.nivel
+	ORDER BY
+    n.id_nivel) as X;
+   --Primero ir recorriendo el JSON e ir insertando las preguntas por nivel en la tabla niveles seccion 
+   -- select * from test_niveles tn
+   	FOR p_p_numero_preguntas IN SELECT * FROM json_array_elements(p_numero_preguntas)
+    loop
+	    --varibales 
+       r_id_nivel := (p_p_numero_preguntas ->> 'r_id_nivel')::integer;
+	   r_num_preguntas := (p_p_numero_preguntas ->> 'r_num_preguntas')::integer;
+	   r_nivel := (p_p_numero_preguntas ->> 'r_nivel')::character varying;
+	  --r_nivel
+	  --si el seleccionado es true entonces insertar 
+	  --hacer una consulta para saber cuantas preguntas validas tiene ese nivel y si el numero ingresado
+	  --es mayor al que permite entonces no dejar ingresar 
+	  --r_total_preguntas
+	  select into r_total_preguntas cast(COUNT(*)as integer) from preguntas p where p.id_nivel =r_id_nivel and not p.error ;
+	 	if r_num_preguntas>r_total_preguntas then 
+	         RAISE EXCEPTION USING
+        MESSAGE = format('El numero de preguntas ingresado para el %s supera las %s preguntas validas registradas en dicho nivel', r_nivel, r_total_preguntas);
+	 	--raise exception 'El numero de preguntas ingresado para el nivel supera las preguntas validas registradas en dicho nivel';
+	 	end if;
+	 if r_num_preguntas<=0 then 
+	         RAISE EXCEPTION USING
+        MESSAGE = format('El numero de preguntas ingresado para el %s no puede menor o igual a 0', r_nivel);
+	 	--raise exception 'El numero de preguntas ingresado para el nivel supera las preguntas validas registradas en dicho nivel';
+	 	end if;
+    end loop;
+	--insertar en test_secciones
+	insert into test_secciones(id_test, id_seccion, cantidad_niveles,orden, numero_preguntas)
+		values(p_id_test,p_id_seccion,p_cantidad_niveles,1,1);
+ 	--obtener el id_test_secciones creado 
+	--select * from test_secciones order by fecha_add desc
+	select into p_id_test_secciones ts.id_test_secciones from test_secciones ts where ts.id_test=p_id_test and ts.id_seccion=p_id_seccion;
+      --hacer el segundo loop para ingresar los datos porque el primero solo era para verificarlo 
+   --select * from test_niveles tn ;
+FOR p_p_p_numero_preguntas IN SELECT * FROM json_array_elements(p_numero_preguntas)
+    loop
+	    --varibales 
+       r_id_nivel := (p_p_p_numero_preguntas ->> 'r_id_nivel')::integer;
+	   r_num_preguntas := (p_p_p_numero_preguntas ->> 'r_num_preguntas')::integer;
+	   --como no hubo errores entonces insertar los niveles con los numeros de preguntas 
+	  insert into test_niveles(id_nivel, numero_preguntas_nivel, id_test_secciones)
+	  values 
+	  (r_id_nivel,r_num_preguntas,p_id_test_secciones);
+	  	
+    end loop;
+   
+   
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;	
+$procedure$
+;
+
+
+CREATE OR REPLACE PROCEDURE public.SP_REGISTRAR_RESPUESTA_MULTIPLE_JSON(
+														p_id_progreso_pregunta int,
+														IN p_respuesta json, 
+														p_tiempo_respuesta int)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	--reemplazar el json para recorrerlo
+	p_p_respuesta JSON;
+	--variables del JSON
+	r_opcion character varying;
+	seleccionado bool;
+begin
+	
+	
+	FOR p_p_respuesta IN SELECT * FROM json_array_elements(p_respuesta)
+    loop
+	    --varibales 
+       r_opcion := (p_p_respuesta ->> 'r_opcion')::varchar;
+	   seleccionado := (p_p_respuesta ->> 'seleccionado')::boolean;
+	  --si el seleccionado es true entonces insertar 
+	  if seleccionado then 
+	  		insert into progreso_respuestas(id_progreso_pregunta,
+	  										respuesta,
+	  										tiempo_respuesta)
+	  										values (
+	  										p_id_progreso_pregunta,
+	  										r_opcion,
+	  										p_tiempo_respuesta
+	  										);
+	  end if;
+    end loop;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+--con esto obtengo el id del test secciones para obtener la lista de los niveles 
+--y para obtener el numero de las preguntas por nivel 
+select ts.id_test_secciones  from test_secciones ts 
+where ts.id_seccion = 54 and ts.id_test = 140;
+--obtener el numero de preguntas por nivel 
+select * from test_niveles tn  where tn.id_test_secciones =89;
+select * from fu_listar_niveles_num_preguntas(54,140);
+--{ p_id_seccion: '56', p_id_test: '145' }
+--funcion para listar el numero de preguntas por nivel para poderlos editar skere modo diablo 
+
+
+--DROP  FUNCTION public.fu_listar_niveles_num_preguntas(p_id_seccion integer, p_id_test integer)
+CREATE OR REPLACE FUNCTION public.fu_listar_niveles_num_preguntas(p_id_seccion integer, p_id_test integer)
+ RETURNS TABLE(r_id_test_niveles integer, r_nivel integer, r_total_preguntas integer, r_num_preguntas integer, r_id_nivel integer)
+ LANGUAGE plpgsql
+AS $function$
+declare
+	p_id_test_seccion integer;
+begin
+	select into p_id_test_seccion ts.id_test_secciones  from test_secciones ts 
+	where ts.id_seccion = p_id_seccion and ts.id_test = p_id_test;
+
+--ahora listar el numero de preguntas por nivel para mandarlos a editar
+--  select into r_total_preguntas cast(COUNT(*)as integer) from preguntas p where p.id_nivel =r_id_nivel and not p.error ;
+	return query
+	select 
+		tn.id_test_niveles,
+		n.nivel,
+		(select cast(COUNT(*)as integer) from preguntas p where p.id_nivel =tn.id_nivel and not p.error),
+		tn.numero_preguntas_nivel,
+		tn.id_nivel
+	from test_niveles tn  
+	inner join niveles n on tn.id_nivel = n.id_nivel
+	where tn.id_test_secciones =p_id_test_seccion--p_id_test_seccion
+	order by n.nivel ;
+
+end;
+$function$
+;
+
+--funcion que haga lo mismo que el de insertar pero que ahora lo edite 
+CREATE OR REPLACE PROCEDURE public.sp_actualizar_niveles_preguntas_seccion_test(IN p_id_test integer, IN p_id_seccion integer, IN p_numero_preguntas JSON)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	p_cantidad_niveles int;
+	p_p_numero_preguntas json;
+	p_p_p_numero_preguntas json;
+	r_id_nivel integer;
+	r_num_preguntas integer;
+	r_total_preguntas integer;
+	r_nivel character varying;
+	p_id_test_secciones integer;
+r_r_id_nivel integer;
+begin
+   --Primero ir recorriendo el JSON e ir insertando las preguntas por nivel en la tabla niveles seccion 
+   -- select * from test_niveles tn
+   	FOR p_p_numero_preguntas IN SELECT * FROM json_array_elements(p_numero_preguntas)
+    loop
+	    --varibales 
+       r_id_nivel := (p_p_numero_preguntas ->> 'r_id_test_niveles')::integer;
+	   r_num_preguntas := (p_p_numero_preguntas ->> 'r_num_preguntas')::integer;
+	   r_nivel := (p_p_numero_preguntas ->> 'r_nivel')::character varying;
+	   r_r_id_nivel := (p_p_numero_preguntas ->> 'r_id_nivel')::integer;
+
+	  --
+	  
+	  --r_nivel
+	  --si el seleccionado es true entonces insertar 
+	  --hacer una consulta para saber cuantas preguntas validas tiene ese nivel y si el numero ingresado
+	  --es mayor al que permite entonces no dejar ingresar 
+	  --r_total_preguntas
+	  select into r_total_preguntas cast(COUNT(*)as integer) from preguntas p where p.id_nivel =r_r_id_nivel and not p.error ;
+	--primero preguntar si el numero de preguntas no es menor o 
+	 if r_num_preguntas<=0 then 
+	         RAISE EXCEPTION USING
+        MESSAGE = format('El numero de preguntas ingresado para el nivel %s no puede menor o igual a 0', r_nivel);
+	 	--raise exception 'El numero de preguntas ingresado para el nivel supera las preguntas validas registradas en dicho nivel';
+	 	--si no es asi entonces poner otra condicion 
+       -- condicion para ver si el numero de preguntas no es mayor al que existe 
+       else 
+      			 if r_num_preguntas>r_total_preguntas then 
+	      		 	  RAISE EXCEPTION USING
+      				  MESSAGE = format('El numero de preguntas ingresado para el nivel %s supera las %s preguntas validas registradas en dicho nivel', r_nivel, r_total_preguntas);
+	 			--raise exception 'El numero de preguntas ingresado para el nivel supera las preguntas validas registradas en dicho nivel';
+	 			--si no es asi entonces hacer el update 
+      			 else 
+       			--hacer el update 
+       			--test_niveles(id_nivel, numero_preguntas_nivel, id_test_secciones)
+      			 --select * from test_niveles
+      			 update test_niveles set numero_preguntas_nivel= r_num_preguntas where id_test_niveles=r_id_nivel;
+       			end if;
+       end if;
+    end loop;
+
+
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;	
+$procedure$
+;

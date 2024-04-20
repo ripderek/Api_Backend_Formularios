@@ -264,17 +264,40 @@ const secciones_test = async (req, res, next) => {
 //funcion para una seccion con un test
 const agregar_seccion_test = async (req, res, next) => {
   try {
+    //agregar el JSON como parametro que contiene el id del nivel y el numero de preguntas a registrar
+    //el JSON es el p_numero_preguntas
     const { p_id_test, p_id_seccion, p_numero_preguntas } = req.body;
 
     const result = await pool.query("call SP_Ingresar_seccion_test($1,$2,$3)", [
       p_id_test,
       p_id_seccion,
-      p_numero_preguntas,
+      JSON.stringify(p_numero_preguntas),
     ]);
 
     return res
       .status(200)
       .json({ message: "Se ha agregado la seccion al test" });
+    //return res.status(200).json(result.rows);
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ error: error.message });
+  }
+};
+//funcion para eidtarlas
+const sp_actualizar_niveles_preguntas_seccion_test = async (req, res, next) => {
+  try {
+    //agregar el JSON como parametro que contiene el id del nivel y el numero de preguntas a registrar
+    //el JSON es el p_numero_preguntas
+    const { p_id_test, p_id_seccion, p_numero_preguntas } = req.body;
+
+    const result = await pool.query(
+      "call sp_actualizar_niveles_preguntas_seccion_test($1,$2,$3)",
+      [p_id_test, p_id_seccion, JSON.stringify(p_numero_preguntas)]
+    );
+
+    return res
+      .status(200)
+      .json({ message: "Se ha actualizado el numero de preguntas del test" });
     //return res.status(200).json(result.rows);
   } catch (error) {
     console.log(error);
@@ -604,7 +627,23 @@ const eliminar_seccion_test = async (req, res, next) => {
     return res.status(404).json({ error: error.message });
   }
 };
-
+//funcion que devuelve la lista actual del numero de preguntas por nivel de una seccion-test
+const fu_listar_niveles_num_preguntas = async (req, res, next) => {
+  try {
+    const { p_id_seccion, p_id_test } = req.params;
+    // console.log("error aqui");
+    console.log(req.params);
+    const result = await pool.query(
+      "select * from fu_listar_niveles_num_preguntas($1,$2)",
+      [p_id_seccion, p_id_test]
+    );
+    console.log(result.rows);
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ message: error.message });
+  }
+};
 module.exports = {
   crear_test,
   test_usuario,
@@ -640,4 +679,6 @@ module.exports = {
   editar_test_no_fechas,
   editar_fechas_test,
   eliminar_seccion_test,
+  fu_listar_niveles_num_preguntas,
+  sp_actualizar_niveles_preguntas_seccion_test,
 };
