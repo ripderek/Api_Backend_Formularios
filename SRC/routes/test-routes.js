@@ -35,6 +35,8 @@ const {
   editar_test_no_fechas,
   editar_fechas_test,
   eliminar_seccion_test,
+  fu_listar_niveles_num_preguntas,
+  sp_actualizar_niveles_preguntas_seccion_test,
 } = require("../controllers/Test_/test-controller");
 
 //router.post('/Login', verificaUser);
@@ -111,5 +113,14 @@ router.post("/EditarTestNoFechas", editar_test_no_fechas);
 router.post("/editar_fechas_test", editar_fechas_test);
 //eliminar_seccion_test
 router.post("/eliminar_seccion_test", eliminar_seccion_test);
-
+//fu_listar_niveles_num_preguntas
+router.get(
+  "/fu_listar_niveles_num_preguntas/:p_id_seccion/:p_id_test",
+  fu_listar_niveles_num_preguntas
+);
+//sp_actualizar_niveles_preguntas_seccion_test
+router.post(
+  "/sp_actualizar_niveles_preguntas_seccion_test",
+  sp_actualizar_niveles_preguntas_seccion_test
+);
 module.exports = router;
