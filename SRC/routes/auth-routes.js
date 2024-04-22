@@ -10,6 +10,7 @@ const {
   estado_formulario_token,
   crear_usuario,
   verificar_cuenta,
+  Logouth,
 } = require("../controllers/Auth/auth-controller");
 
 router.post("/Login", verificaUser);
@@ -26,5 +27,5 @@ router.get("/estado_formulario_token/:token", estado_formulario_token);
 //fucnion para liberar una cuenta es decir verificarla para deje iniciar sesion
 //verificar_cuenta
 router.post("/verificar_cuenta/:token", verificar_cuenta);
-
+router.post("/Logouth", Logouth);
 module.exports = router;

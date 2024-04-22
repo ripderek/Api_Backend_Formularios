@@ -365,7 +365,28 @@ const verificar_cuenta = async (req, res, next) => {
     return res.status(404).json({ message: error.message });
   }
 };
-
+const Logouth = async (req, res, next) => {
+  console.log("En la fucnion de logout");
+  const { myTokenName } = req.cookies;
+  if (!myTokenName) return res.status(401).json({ error: "Null Token" });
+  try {
+    jwt.verify(myTokenName, "SECRET");
+    const serialized = serialize("myTokenName", null, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      maxAge: 0, //para que vensa la cookie de una vez
+      path: "/",
+    });
+    //maxAge: 1000 * 60 * 60 * 24 * 30, //30 dias
+    //1000 * 60 * 15,  // 15 minutos
+    res.setHeader("Set-Cookie", serialized);
+    return res.json({ verification: "false", token: null, id: "" });
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ message: error.message });
+  }
+};
 module.exports = {
   verificaUser,
   prueba_conexion,
@@ -376,4 +397,5 @@ module.exports = {
   estado_formulario_token,
   crear_usuario,
   verificar_cuenta,
+  Logouth,
 };
