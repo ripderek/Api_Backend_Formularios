@@ -9041,3 +9041,311 @@ begin
 END;	
 $procedure$
 ;
+
+select * from usuario u 
+
+select * from FU_usuario_data('2b47b450-1e47-4113-989b-a52f4198a116');
+--funcion que devuelve los datos de un usuario para poderlos editar 
+CREATE OR REPLACE FUNCTION public.fu_info_Usuario(usuarioID character varying)
+ RETURNS TABLE(r_nombres_apellidos character varying, r_tipo_identificacion character varying, r_identificacion character varying, r_correo_institucional character varying, r_numero_celular character varying)
+ LANGUAGE plpgsql
+AS $function$
+
+begin
+	return query
+	select u.nombres_apellidos, u.tipo_identificacion, u.identificacion, u.correo_institucional, u.numero_celular  from usuario u where cast(u.id_user as character varying)=usuarioID;
+
+end;
+$function$
+;
+select * from usuario u 
+--procedimiento almacenado para editar la informacion de un perfil segun el id 
+CREATE OR REPLACE PROCEDURE public.sp_actualizar_info_user
+(p_nombres_apellidos character varying , p_identificacion character varying, p_numero_celular character varying, p_id_user character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+
+begin
+	update usuario set nombres_apellidos =p_nombres_apellidos, identificacion=p_identificacion, numero_celular=p_numero_celular
+	where cast (id_user as character varying )= p_id_user;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;	
+$procedure$
+;
+select * from usuario u
+--funcion para cambiar la contrasema de un perfil 
+-- DROP PROCEDURE public.sp_editar_usuario_not_admin(varchar, varchar, varchar);
+
+CREATE OR REPLACE PROCEDURE public.sp_editar_contrasena(IN p_id_usuario character varying, IN p_nueva_contraseña character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+begin
+	if trim(p_nueva_contraseña)='' then
+			raise exception ':La nueva contrasena no puede ser vacia';
+	end if;
+    -- Actualiza la contraseña y el número de celular en la tabla
+    UPDATE usuario
+    SET contra = PGP_SYM_ENCRYPT(p_nueva_contraseña::text, 'SGDV_KEY')
+    WHERE cast(id_user as character varying) = p_id_usuario;
+	
+EXCEPTION
+    -- Si ocurre algún error, revierte la transacción
+    WHEN OTHERS THEN
+        ROLLBACK;
+       RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal sp_editar_contrasena: %', SQLERRM;	
+END;
+$procedure$
+;
+
+--sp para guardar la configuracion de la interfaz de un usuario
+select iu.sidenavcolor ,iu.sidenavtype   from interfaz_usuario iu 
+select * from usuario u 
+CREATE OR REPLACE PROCEDURE public.sp_actualizar_interfaz_usuario(IN p_id_usuario character varying, p_sidenavcolor  character varying,p_sidenavtype  character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+begin
+    -- Actualiza la contraseña y el número de celular en la tabla
+    UPDATE interfaz_usuario set 
+    sidenavcolor=p_sidenavcolor,
+    sidenavtype=p_sidenavtype
+    WHERE cast(id_user as character varying) = p_id_usuario;
+	
+EXCEPTION
+    -- Si ocurre algún error, revierte la transacción
+    WHEN OTHERS THEN
+        ROLLBACK;
+       RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal sp_actualizar_interfaz_usuario: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+
+--Consulta que devuelva un JSON con toda la informacion en uno solo para la paguina de inico de la APP 
+SELECT
+    json_build_object(
+        'NombreUser', u.nombres_apellidos,
+        'SeccionesInvitado', (
+            SELECT json_agg(json_build_object(
+                'r_seccion_titulo', s2.r_titulo,
+                'r_descripcion', s2.r_titulo,
+                'r_fecha_add', s2.r_fecha_add
+            ))
+            from secciones_top_5_admin_and_not(cast(u.id_user as character varying), false) s2
+        ),
+         'SeccionesAdmin', (
+            SELECT json_agg(json_build_object(
+                'r_seccion_titulo', s2.r_titulo,
+                'r_descripcion', s2.r_descripcion,
+                'r_fecha_add', s2.r_fecha_add
+            ))
+            from secciones_top_5_admin_and_not(cast(u.id_user as character varying), true)as s2
+        ),
+        'SeccionesEstadistica', (
+          SELECT json_agg(json_build_object(
+                'r_secciones_erroneas', X.r_secciones_erroneas,
+                'r_secciones_no_erroneas',X.r_sinerrores
+           )) 
+           FROM
+        (
+        select COUNT(*) as r_secciones_erroneas,
+		(
+		select COUNT(*) from fu_secciones_usuario(cast(u.id_user as character varying)) fu2
+		where not fu2.r_erroneo
+		) as r_sinerrores
+		from fu_secciones_usuario(cast(u.id_user as character varying)) fu
+		where fu.r_erroneo ) as X     
+        ),
+        'Formularios_Erroneos', (
+            SELECT json_agg(json_build_object(
+                'r_id_formulario',  X.id,
+                'r_titulo_formulario', X. titulo
+            ))
+            from
+(
+select t.id_test as id ,t.titulo as titulo  from test t
+where t.id_user_crea=u.id_user and t.estado_detalle ='Erroneo' 
+order by t.id_test desc limit 5
+) as X 
+        ),
+        'Formularios_mas_participantes', (
+            SELECT json_agg(json_build_object(
+                'r_id_test',  X.IDTEST,
+                'r_tituloTest',X.TITULOTEST,
+                'r_numero_participantes',X.Contador
+            ))
+            from 
+			(
+			select Y.IDTEST, Y.TITULOTEST, Y.Contador from 
+			(
+			select 
+			t.id_test as IDTEST,
+			t.titulo as TITULOTEST,
+			(
+			select COUNT(*) from participantes_test pt 
+			where pt.id_test = t.id_test 
+			) as Contador
+			from test t 
+			where  t.id_user_crea =u.id_user
+			) as Y 
+			order by Y.Contador desc limit 5 
+			) as X 
+ )) AS resultado_json
+ FROM usuario u
+ where cast(u.id_user as character varying)='5bdf086e-5f0b-4731-ae85-c360cab016cd';
+
+
+select *from usuario u 
+--3b43792d-ec18-49a5-b8af-753c65cb9b21
+--top 5 de formularios con mas participantes de un usuario
+select * from 
+(
+select Y.IDTEST, Y.TITULOTEST, Y.Contador from 
+(
+select 
+t.id_test as IDTEST,
+t.titulo as TITULOTEST,
+(
+select COUNT(*) from participantes_test pt 
+where pt.id_test = t.id_test 
+) as Contador
+from test t 
+where cast (t.id_user_crea as character varying) ='3b43792d-ec18-49a5-b8af-753c65cb9b21'
+) as Y 
+order by Y.Contador desc limit 5 
+) as X 
+
+
+select * from participantes_test
+
+
+
+select * from test
+
+
+
+CREATE OR REPLACE FUNCTION public.secciones_top_5_admin_and_not(p_id_user character varying, isadmin bool)
+ RETURNS TABLE(r_titulo character varying, r_descripcion character varying, r_fecha_add character varying )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	if (isadmin) then 
+		return query
+		SELECT 
+                s2.titulo,
+                 s2.descripcion,
+                 cast(to_char(s2.fecha_creacion ,'DD-MON-YYYY HH24:MI')as varchar(500))
+           
+            from secciones_usuario s 
+			inner join secciones s2  on s.id_seccion =s2.id_seccion 
+			where  cast(s.id_usuario as character varying)= p_id_user
+			and  s.admin_seccion order by s2.fecha_creacion desc limit 5;
+	else 
+	return query
+		SELECT 
+                s2.titulo,
+                 s2.descripcion,
+                 cast(to_char(s2.fecha_creacion ,'DD-MON-YYYY HH24:MI')as varchar(500))
+           
+            from secciones_usuario s 
+			inner join secciones s2  on s.id_seccion =s2.id_seccion 
+			where  cast(s.id_usuario as character varying)= p_id_user
+			and not s.admin_seccion order by s2.fecha_creacion desc limit 5;
+	end if;
+	
+end;
+$function$
+;
+
+select * from usuario u 
+
+
+select * from estadistica_paguina_home('3b43792d-ec18-49a5-b8af-753c65cb9b21');
+--funcion que retorna un JSON Con toda la informacion de golpe skere modo diablo 
+CREATE OR REPLACE FUNCTION public.estadistica_paguina_home(p_id_user character varying)
+ RETURNS TABLE(RESULTADO JSON )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	SELECT
+    json_build_object(
+        'NombreUser', u.nombres_apellidos,
+        'SeccionesInvitado', (
+            SELECT json_agg(json_build_object(
+                'r_seccion_titulo', s2.r_titulo,
+                'r_descripcion', s2.r_titulo,
+                'r_fecha_add', s2.r_fecha_add
+            ))
+            from secciones_top_5_admin_and_not(cast(u.id_user as character varying), false) s2
+        ),
+         'SeccionesAdmin', (
+            SELECT json_agg(json_build_object(
+                'r_seccion_titulo', s2.r_titulo,
+                'r_descripcion', s2.r_descripcion,
+                'r_fecha_add', s2.r_fecha_add
+            ))
+            from secciones_top_5_admin_and_not(cast(u.id_user as character varying), true)as s2
+        ),
+        'SeccionesEstadistica', (
+          SELECT json_agg(json_build_object(
+                'r_secciones_erroneas', X.r_secciones_erroneas,
+                'r_secciones_no_erroneas',X.r_sinerrores
+           )) 
+           FROM
+        (
+        select COUNT(*) as r_secciones_erroneas,
+		(
+		select COUNT(*) from fu_secciones_usuario(cast(u.id_user as character varying)) fu2
+		where not fu2.r_erroneo
+		) as r_sinerrores
+		from fu_secciones_usuario(cast(u.id_user as character varying)) fu
+		where fu.r_erroneo ) as X     
+        ),
+        'Formularios_Erroneos', (
+            SELECT json_agg(json_build_object(
+                'r_id_formulario',  X.id,
+                'r_titulo_formulario', X. titulo
+            ))
+            from
+(
+select t.id_test as id ,t.titulo as titulo  from test t
+where t.id_user_crea=u.id_user and t.estado_detalle ='Erroneo' 
+order by t.id_test desc limit 5
+) as X 
+        ),
+        'Formularios_mas_participantes', (
+            SELECT json_agg(json_build_object(
+                'r_id_test',  X.IDTEST,
+                'r_tituloTest',X.TITULOTEST,
+                'r_numero_participantes',X.Contador
+            ))
+            from 
+			(
+			select Y.IDTEST, Y.TITULOTEST, Y.Contador from 
+			(
+			select 
+			t.id_test as IDTEST,
+			t.titulo as TITULOTEST,
+			(
+			select COUNT(*) from participantes_test pt 
+			where pt.id_test = t.id_test 
+			) as Contador
+			from test t 
+			where  t.id_user_crea =u.id_user
+			) as Y 
+			order by Y.Contador desc limit 5 
+			) as X 
+ )) AS resultado_json
+ FROM usuario u
+ where cast(u.id_user as character varying)=p_id_user;
+
+end;
+$function$
+;
+
+
