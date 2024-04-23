@@ -37,6 +37,7 @@ const {
   eliminar_seccion_test,
   fu_listar_niveles_num_preguntas,
   sp_actualizar_niveles_preguntas_seccion_test,
+  fu_posibilidades_reportes_formulario,
 } = require("../controllers/Test_/test-controller");
 
 //router.post('/Login', verificaUser);
@@ -122,5 +123,9 @@ router.get(
 router.post(
   "/sp_actualizar_niveles_preguntas_seccion_test",
   sp_actualizar_niveles_preguntas_seccion_test
+);
+router.get(
+  "/fu_posibilidades_reportes_formulario/:p_token_test",
+  fu_posibilidades_reportes_formulario
 );
 module.exports = router;
