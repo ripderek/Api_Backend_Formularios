@@ -644,6 +644,23 @@ const fu_listar_niveles_num_preguntas = async (req, res, next) => {
     return res.status(404).json({ message: error.message });
   }
 };
+//funcion que devuelva en un JSON las posibilidades de reportes de un test, por ejemplo si tiene participantes, si tiene secciones si se esta resolviendo, etc
+const fu_posibilidades_reportes_formulario = async (req, res, next) => {
+  try {
+    const { p_token_test } = req.params;
+    // console.log("error aqui");
+    console.log(req.params);
+    const result = await pool.query(
+      "select * from fu_posibilidades_reportes_formulario($1)",
+      [p_token_test]
+    );
+    console.log(result.rows);
+    return res.status(200).json(result.rows[0]);
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ message: error.message });
+  }
+};
 module.exports = {
   crear_test,
   test_usuario,
@@ -681,4 +698,5 @@ module.exports = {
   eliminar_seccion_test,
   fu_listar_niveles_num_preguntas,
   sp_actualizar_niveles_preguntas_seccion_test,
+  fu_posibilidades_reportes_formulario,
 };

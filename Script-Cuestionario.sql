@@ -9349,3 +9349,96 @@ $function$
 ;
 
 
+--eliminar tambien los registros de la tabla niveles secciones porque alli tiene el numero de preguntas segun el id de la seccion a eliminar 
+-- DROP PROCEDURE public.sp_eliminar_seccion_test(int4, int4);
+
+CREATE OR REPLACE PROCEDURE public.sp_eliminar_seccion_test(IN p_id_test integer, IN p_id_seccion integer)
+ LANGUAGE plpgsql
+AS $procedure$
+begin
+	delete from test_niveles where id_test_secciones in 
+		(select id_test_secciones  from test_secciones where id_test = id_test and id_seccion =p_id_seccion);
+		delete  from test_secciones ts where ts.id_test =p_id_test and id_seccion=p_id_seccion;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+select * from test_niveles tn 
+
+
+------------------[REPORTES PARA LA APP DE FORMULARIOS]-------------
+--funcion que devuelva un JSON con los reportes permitidos de un formulario
+--para saber si tiene participantes
+select
+case when COUNT(*) >0 then true else false end as TieneParticipantes 
+from participantes_test pt 
+where pt.id_test in 
+(
+select id_test  from test t 
+where cast(t.tokens as character varying )='d8ede920-ab80-4bce-a223-f7b5f7c4e3f7'
+) and pt.estado;
+--para saber si tiene secciones
+select 
+case when COUNT(*) >0 then true else false end as TieneSecciones 
+from test_secciones ts 
+where ts.id_test  in (
+select id_test from test t 
+where cast(t.tokens as character varying )='d8ede920-ab80-4bce-a223-f7b5f7c4e3f7' 
+);
+--para saber si tiene progresos respuestas, es decir si ya se esta resolviendo o esta resuelto
+select 
+case when COUNT(*) >0 then true else false end as TieneProgresoRespuestas 
+from progreso_secciones ps 
+inner join progreso_preguntas pp on ps.id_progreso_seccion=pp.id_progreso_seccion
+inner join progreso_respuestas pr on pp.id_progreso_preguntas = pr.id_progreso_pregunta
+where 
+ps.id_participante_test in 
+(
+select
+id_participante_test 
+from participantes_test pt 
+where pt.id_test in 
+(
+select id_test  from test t 
+where cast(t.tokens as character varying )='d8ede920-ab80-4bce-a223-f7b5f7c4e3f7'
+)
+);
+
+---EN JSON
+
+
+select * from fu_posibilidades_reportes_formulario('d8ede920-ab80-4bce-a223-f7b5f7c4e3f7');
+
+   CREATE OR REPLACE FUNCTION public.fu_posibilidades_reportes_formulario(p_token_test character varying)
+ RETURNS TABLE(RESULTADO JSON )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+SELECT
+    json_build_object(
+        'TieneParticipantes', (SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END
+                               FROM participantes_test pt
+                               WHERE pt.id_test IN (SELECT id_test FROM test t WHERE cast(t.tokens as character varying)=p_token_test)
+                                 AND pt.estado),
+        'TieneSecciones', (SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END
+                           FROM test_secciones ts
+                           WHERE ts.id_test IN (SELECT id_test FROM test t WHERE cast(t.tokens as character varying)=p_token_test)),
+        'TieneProgresoRespuestas', (SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END
+                                    FROM progreso_secciones ps
+                                    INNER JOIN progreso_preguntas pp ON ps.id_progreso_seccion = pp.id_progreso_seccion
+                                    INNER JOIN progreso_respuestas pr ON pp.id_progreso_preguntas = pr.id_progreso_pregunta
+                                    WHERE ps.id_participante_test IN (SELECT id_participante_test
+                                                                      FROM participantes_test pt
+                                                                      WHERE pt.id_test IN (SELECT id_test FROM test t WHERE cast(t.tokens as character varying)=p_token_test)))
+    ) AS resultado_json;
+
+end;
+$function$
+;
