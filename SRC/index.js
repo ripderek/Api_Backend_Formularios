@@ -17,6 +17,7 @@ const preguntasRoutes = require("./routes/preguntas-routes.js");
 const participantesRoutes = require("./routes/participantes-routes.js");
 const testRoutes = require("./routes/test-routes.js");
 const googleRoutes = require("./routes/auth-routes.js");
+const reportes = require("./routes/reportes-routes.js");
 
 //config entorno
 dotenv.config();
@@ -51,6 +52,7 @@ app.use("/niveles", authenticateToken, nivelesRoutes);
 app.use("/preguntas", authenticateToken, preguntasRoutes);
 app.use("/participantes", authenticateToken, participantesRoutes);
 app.use("/test", authenticateToken, testRoutes);
+app.use("/reportes", authenticateToken, reportes);
 
 //rutas protegidas con middleare, es decir, se necesita un token valido para acceder
 //app.use('/api/user', authenticateToken, userRoutes);
