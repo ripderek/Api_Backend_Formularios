@@ -8096,7 +8096,7 @@ DROP TRIGGER IF EXISTS tr_test_update ON test;
 
 
 
-create  trigger tr_test_update after
+create or replace trigger tr_test_update after
 update
     on
     public.test for each row execute function fu_tr_test_update()
@@ -8156,8 +8156,1289 @@ $procedure$
 
 
 --colocar los disparadores para controlar las actualizaciones de las fechas
-create trigger tr_test_validar_fechas_update before
+create or replace trigger tr_test_validar_fechas_update before
 update
     on
     public.test for each row execute function fu_tr_test_validar_fechas()
 
+    
+--funcion para eliminar unas seccion de un test 
+select * from test_secciones ts where ts.id_test =142;
+
+--procedimiento almacenado para eliminar una seccion 
+    Create or Replace Procedure SP_Eliminar_seccion_test(
+    in p_id_test integer, in p_id_seccion integer
+    )
+Language 'plpgsql'
+AS $$
+begin
+		delete  from test_secciones ts where ts.id_test =p_id_test and id_seccion=p_id_seccion;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$$;
+
+
+select * from usuario u;
+
+
+-- DROP PROCEDURE public.crear_usuario(varchar, varchar, varchar, varchar, varchar, varchar);
+
+CREATE OR REPLACE PROCEDURE public.crear_usuario
+	(IN p_contrasena character varying,
+	IN p_correo_institucional character varying,
+	IN p_identificacion character varying, 
+	IN p_nombres_apellidos character varying,
+	IN p_celular character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+
+Begin
+	insert into usuario(
+						contra,
+						correo_institucional,
+						identificacion,
+						nombres_apellidos,
+						numero_celular,
+						tipo_identificacion
+						)values
+						(
+						 PGP_SYM_ENCRYPT(p_contrasena::text,'SGDV_KEY'),
+						 p_correo_institucional,
+						 p_identificacion,
+						 p_nombres_apellidos,
+						 p_celular,
+						 'Cedula'
+						);
+
+EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+
+END;
+$procedure$
+;
+
+--hacer un trigger que verifique los dominios permitidos para que los usuarios se puedan registrar 
+-- DROP FUNCTION public.fu_tr_insert_usuario();
+
+CREATE OR REPLACE FUNCTION public.fu_tr_insert_usuario()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+declare 
+	p_dominio character varying;
+begin
+	if trim(new.nombres_apellidos)='' then
+            raise exception 'Nombres no puede ser vacio';
+    end if;
+    if new.identificacion  ~ '[^0-9]' then 
+        raise exception 'Identificacion solo puede contener numeros';
+    end if;
+    if new.numero_celular  ~ '[^0-9]' then 
+        raise exception 'Celular solo puede contener numeros';
+    end if;
+    if length(new.numero_celular) <> 10 then
+        raise exception 'Celular debe tener 10 digitos';
+    end if; 
+    if trim(new.correo_institucional)='' then
+            raise exception 'Correo institucional no puede ser vacio';
+    end if;
+   	if trim(new.tipo_identificacion)='' then
+            raise exception 'Tipo de identificación no puede ser vacio';
+    end if;
+    --validar el tamano de la identificacion dependiendo del tipo
+    if(new.tipo_identificacion='Cedula')then
+        if length(new.identificacion)<>10 then
+                    raise exception 'Cedula requiere 10 digitos';
+        end if;
+    end if;
+    if(new.tipo_identificacion='Ruc')then
+        if length(new.identificacion)<>13 then
+                    raise exception 'Ruc requiere 13 digitos';
+        end if;
+    end if;
+    if(new.tipo_identificacion='Pasaporte')then
+        if length(new.identificacion)<>12 then
+                    raise exception 'Pasaporte requiere 12 digitos';
+        end if;
+    end if;
+   --crear una exepcion cuando el correo que se quiere ingresar no pertenece a la UTEQ 
+   --new.correo_institucional
+    p_dominio := SUBSTRING(NEW.correo_institucional, strpos(NEW.correo_institucional, '@') + 1);
+   --comparar el dominio 
+   if p_dominio <>'uteq.edu.ec' then 
+     raise exception 'El dominio del correo no pertenece a la empresa';
+   end if;
+   
+return new;
+end
+$function$
+;
+
+
+select * from interfaz_usuario iu ;
+select * from usuario u ;
+--añadir un campo para saber si la cuenta es verificada o no skere modo diablo
+--si no esta verificada entonces no dar paso al inicio de sesion 
+
+alter table usuario
+add column CuentaVerificada bool  default false;
+
+
+ALTER TABLE usuario
+ALTER COLUMN CuentaVerificada SET NOT NULL;
+
+
+-- DROP FUNCTION public.verification_auth(varchar, varchar);
+
+CREATE OR REPLACE FUNCTION public.verification_auth(email character varying, contra1 character varying)
+ RETURNS TABLE(verification integer, mensaje character varying)
+ LANGUAGE plpgsql
+AS $function$
+declare
+	User_Deshabili bool;
+	User_Exit bool;
+	User_Verificado bool;
+begin
+	--Primero Verificar si el correo que se esta ingresando existe
+	select into User_Exit case when COUNT(*)>=1 then True else false end  from usuario where correo_institucional=email;	
+	select into User_Verificado CuentaVerificada from usuario where correo_institucional  = email 
+			and  PGP_SYM_DECRYPT(contra ::bytea, 'SGDV_KEY') = contra1
+   			and estado=true;
+   	--verficiar que la cuenta este verificada 
+   	if User_Verificado=false then 
+   					return query
+   					select cast(5 as int), cast('La cuenta no esta verificada' as varchar(500));
+   	end if ;
+	--Segundo  Verificar si el usuario tiene un estado habilitado o deshabilitado
+	if (User_Exit) then 
+		select into User_Deshabili estado from usuario where correo_institucional=email;
+		if (User_Deshabili) then 
+			return query
+			select
+			cast(case when COUNT(*)>=1 then 1 else 2 end as int),
+			 cast(case when COUNT(*)>=1 then 'Login Correcto' else 'Contraseña incorrecta' end as varchar(500))
+			from usuario
+			where correo_institucional  = email 
+			and  PGP_SYM_DECRYPT(contra ::bytea, 'SGDV_KEY') = contra1
+   			and estado=true;
+   		else 
+   			return query
+			select cast(3 as int), cast('Usuario deshabilitado contacte con un administrador' as varchar(500));
+		end if;
+	else 
+	   		return query
+			select cast(4 as int), cast('Este correo no esta registrado' as varchar(500));
+	end if;
+end;
+$function$
+;
+
+
+select * from usuario u  ;
+select * from interfaz_usuario iu ;
+
+--funcion que retorne el id del usuario segun el correo ingresado 
+--drop FUNCTION public.RetornoIDUserGmail(email character varying)
+CREATE OR REPLACE FUNCTION public.RetornoIDUserGmail(email character varying)
+ RETURNS TABLE( mensaje character varying, nombreUser character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+   	return query
+    select cast(id_user as character varying),nombres_apellidos  from usuario u where correo_institucional =email;
+end;
+$function$
+;
+
+select * from RetornoIDUserGmail('rcoelloc2@uteq.edu.ec');
+
+
+
+--hacer una funcion para verificar la cuenta 
+
+select * from usuario u 
+
+call verificar_cuenta('3b43792d-ec18-49a5-b8af-753c65cb9b21');
+
+CREATE OR REPLACE PROCEDURE public.verificar_cuenta
+	(IN p_token character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+declare verification bool;
+Begin
+	--primero preguntar si esa cuenta existe para poderla modificar 
+	select into verification case when COUNT(*)>0 then true else false end as Verification
+	from usuario u where cast (u.id_user as character varying) =p_token;
+	if verification then
+	--hacer la veri	ficacion del usuario 
+		update usuario set CuentaVerificada=true where cast (id_user as character varying) =p_token;
+	else 
+		--crear una exepcion porque el token del usuario no existe 
+		 raise exception 'Este usuario no existe';
+	end if;
+EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+
+END;
+$procedure$
+;
+
+
+--aqui para agregar usuarios invitados a las seccion para que puedan crear niveles y preguntas
+select * from secciones_usuario;
+
+--funcion que retorne la lista de usuarios segun el id del test 
+
+
+
+
+select * from participantes_test_id_test(54);
+
+CREATE OR REPLACE FUNCTION public.participantes_test_id_test(p_id_seccion integer)
+ RETURNS TABLE( toke_user character varying, nombreUser character varying, correo_user character varying, isadmin bool)
+ LANGUAGE plpgsql
+AS $function$
+begin
+   	return query
+		select
+		cast(u.id_user as character varying),
+		u.nombres_apellidos ,
+		u.correo_institucional ,
+		u.isadmin
+		from secciones_usuario su 
+		inner join usuario u  on su.id_usuario =u.id_user 
+		where su.id_seccion =p_id_seccion order by su.admin_seccion desc;
+end;
+$function$
+;
+
+
+
+select
+		cast(u.id_user as character varying),
+		u.nombres_apellidos ,
+		u.correo_institucional ,
+		u.isadmin
+		from secciones_usuario su 
+		inner join usuario u  on su.id_usuario =u.id_user 
+		where su.id_seccion =54 order by su.admin_seccion desc;
+	
+--funcion que retorne la informacion del usuario con respecto a esa secion 
+CREATE OR REPLACE FUNCTION public.informacion_seccion_usuario(p_id_seccion integer, p_id_usuario character varying)
+ RETURNS table
+ (isadmin bool)
+ LANGUAGE plpgsql
+AS $function$
+begin
+   	return query
+		select 
+		u.admin_seccion 
+		from secciones_usuario u 
+	   where u.id_seccion =p_id_seccion and 
+       cast(u.id_usuario as character varying)=p_id_usuario;
+end;
+$function$
+;
+
+
+--funcion para eliminar a un participante de una seccion 
+
+
+CREATE OR REPLACE PROCEDURE public.eliminar_usuario_seccion
+	(IN p_token character varying, in p_id_seccion integer)
+ LANGUAGE plpgsql
+AS $procedure$
+declare verification bool;
+Begin
+	delete from secciones_usuario where id_seccion=p_id_seccion and cast(id_usuario as character varying)=p_token;
+EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+
+END;
+$procedure$
+;
+
+--funcion para buscar participantes y agregarlos a la seccion para crear preguntas y niveles 
+
+
+--or (identificacion ILIKE '%' || p_palabra_clave || '%') or (numero_celular ILIKE '%' || p_palabra_clave || '%')) and estado
+
+--buscar usuario por filtros 
+--drop FUNCTION public.search_users(p_palabra_clave character varying)
+CREATE OR REPLACE FUNCTION public.search_users(p_palabra_clave character varying)
+ RETURNS table
+ ( toke_user character varying,nombreuser character varying, correo_user character varying, isadmin bool )
+ LANGUAGE plpgsql
+AS $function$
+begin
+   	return query
+		select cast (u.id_user as character varying),
+		u.nombres_apellidos ,
+		u.correo_institucional ,
+		cast(false as bool)
+		from usuario u where 
+		(nombres_apellidos ILIKE '%' || p_palabra_clave || '%') or 
+		(identificacion ILIKE '%' || p_palabra_clave || '%') or
+		(correo_institucional ILIKE '%' || p_palabra_clave || '%') or
+		(numero_celular ILIKE '%' || p_palabra_clave || '%') ;
+end;
+$function$
+;
+
+select * 
+		from usuario u
+select * from search_users('rcoello')
+
+--agregar usuario a la seccion
+select * from secciones_usuario su ;
+
+
+CREATE OR REPLACE PROCEDURE public.agregar_usuario_seccion
+	(IN p_token character varying, in p_id_seccion integer)
+ LANGUAGE plpgsql
+AS $procedure$
+declare verification bool;
+Begin
+	delete from secciones_usuario where id_seccion=p_id_seccion and cast(id_usuario as character varying)=p_token;
+EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+
+END;
+$procedure$
+;
+
+select * from usuario u ;
+
+
+--modificar la funcion para que solo muestre las secciones de un usuario mediante el token
+-- DROP FUNCTION public.fu_secciones_disponibles_test(p_token_usuario character varying)
+select * from fu_secciones_disponibles_test('3b43792d-ec18-49a5-b8af-753c65cb9b21')
+CREATE OR REPLACE FUNCTION public.fu_secciones_disponibles_test(p_token_usuario character varying)
+ RETURNS TABLE(r_id_seccion integer, r_titulo character varying, r_num_niveles integer, r_autor character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select s.id_seccion, s.titulo, cast ((select COUNT(*) from 
+								(select n.id_nivel, n.id_seccion, n.nivel  from niveles n 
+								inner join preguntas p on n.id_nivel = p.id_nivel
+									inner join respuestas r on p.id_pregunta=r.id_pregunta
+								where n.estado 	and n.estado and p.estado and p.error = false and r.estado
+								and n.id_seccion=s.id_seccion
+								group by n.id_nivel, n.id_seccion, n.nivel ) as x
+								)as int) as num_niveles, cast('Eres participante' as character varying) as Autori
+	from secciones s
+	inner join niveles n on n.id_seccion=s.id_seccion	
+	inner join preguntas p on n.id_nivel = p.id_nivel
+	inner join respuestas r on p.id_pregunta=r.id_pregunta
+	inner join secciones_usuario su on s.id_seccion = su.id_seccion
+	--and s.Publico 
+	where s.estado and n.estado and p.estado and p.error = false and r.estado and cast (su.id_usuario as character varying )=p_token_usuario
+	group by s.id_seccion, s.titulo; 
+end;
+$function$
+;
+
+select * from secciones_usuario su 
+--La misma funcion pero ahora se le agrega la busqueda por palabra clave y el nombre del admin skere 
+
+
+select * from fu_secciones_disponibles_test_busqueda('Memoria');
+--DROP FUNCTION public.fu_secciones_disponibles_test_busqueda(p_palabra_clave character varying)
+CREATE OR REPLACE FUNCTION public.fu_secciones_disponibles_test_busqueda(p_palabra_clave character varying)
+ RETURNS TABLE(r_id_seccion integer, r_titulo character varying, r_num_niveles integer, r_autor character varying)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select s.id_seccion, s.titulo, cast ((select COUNT(*) from 
+								(select n.id_nivel, n.id_seccion, n.nivel  from niveles n 
+								inner join preguntas p on n.id_nivel = p.id_nivel
+									inner join respuestas r on p.id_pregunta=r.id_pregunta
+								where n.estado 	and n.estado and p.estado and p.error = false and r.estado
+								and n.id_seccion=s.id_seccion
+								group by n.id_nivel, n.id_seccion, n.nivel ) as x
+								)as int) as num_niveles, u.nombres_apellidos
+	from secciones s
+	inner join niveles n on n.id_seccion=s.id_seccion	
+	inner join preguntas p on n.id_nivel = p.id_nivel
+	inner join respuestas r on p.id_pregunta=r.id_pregunta
+	inner join secciones_usuario su on s.id_seccion = su.id_seccion
+	inner join usuario u on su.id_usuario = u.id_user
+	where s.estado and n.estado and p.estado and p.error = false and r.estado 
+	and su.admin_seccion 
+	and s.Publico 
+	and (s.titulo ILIKE '%' || p_palabra_clave || '%') or (u.nombres_apellidos  ILIKE '%' || p_palabra_clave || '%')
+	and s.Publico
+	--and cast (su.id_usuario as character varying )=p_token_usuario
+	group by s.id_seccion, s.titulo, u.nombres_apellidos; 
+--(numero_celular ILIKE '%' || p_palabra_clave || '%') ;
+end;
+$function$
+;
+
+
+select * from secciones_usuario
+select * from usuario u 
+
+
+alter table secciones
+add column Publico bool  default true;
+
+
+ALTER TABLE secciones
+ALTER COLUMN Publico SET NOT NULL;
+
+select * from secciones s 
+
+
+update secciones set Publico= false where id_seccion =60
+
+
+select * from secciones s ;
+select * from usuario u;
+
+-- DROP FUNCTION public.fu_info_edit_section(int4);
+
+CREATE OR REPLACE FUNCTION public.fu_info_edit_section(p_id_seccion integer)
+ RETURNS TABLE(r_descripcion character varying, r_titulo character varying, r_estado boolean, r_publico boolean)
+ LANGUAGE plpgsql
+AS $function$
+
+begin
+			return query
+			select s.descripcion, s.titulo ,s.Estado, s.Publico
+				from secciones s where s.id_seccion =p_id_seccion;
+end;
+$function$
+;
+
+select * from secciones s 
+select * from fu_info_edit_section(56);
+
+--añadir para editar el nuevo dato 
+-- DROP PROCEDURE public.sp_editar_seccion(varchar, varchar, bool, int4, bool);
+
+CREATE OR REPLACE PROCEDURE public.sp_editar_seccion(
+IN p_titulo character varying,
+IN p_descripcion character varying, 
+IN p_new_estado boolean, 
+IN p_id_seccion integer, 
+in p_visibilidad bool)
+ LANGUAGE plpgsql
+AS $procedure$
+
+begin
+	--Editar la seccion
+	update secciones set titulo=p_titulo, descripcion=p_descripcion, estado=p_new_Estado, publico=p_visibilidad where id_seccion=p_id_seccion;
+	
+--EXCEPTION
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+-- DROP FUNCTION public.fu_secciones_usuario(varchar);
+
+CREATE OR REPLACE FUNCTION public.fu_secciones_usuario(p_idu character varying)
+ RETURNS TABLE(r_id_seccion integer, r_titulo character varying, r_descripcion character varying, r_admin_seccion boolean, r_estado boolean,r_visibilidad bool ,r_erroneo boolean)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select s.id_seccion ,s.titulo ,s.descripcion, su.admin_seccion,s.estado,s.publico,
+	--Para identificar si la seccion tiene algun tipo de error 
+	(select 
+case when COUNT(*)>=1 then true --indica que si hay un error
+else 
+	--hacer otro case when que cuente todas las preguntas para ver si da un error
+	case when (select COUNT(*) from niveles n 
+inner join preguntas p on n.id_nivel =p.id_nivel 
+where n.id_seccion =s.id_seccion and p.error ) = 0 then false else true end 
+end as Verificador
+from 
+(select 
+n.id_nivel,
+(select Count(*) from preguntas p where n.id_nivel=p.id_nivel) as ContadorPreguntas
+from niveles n 
+where n.id_seccion =s.id_seccion and (select Count(*) from preguntas p where n.id_nivel=p.id_nivel)=0) as X
+)
+	from secciones s  
+	inner join secciones_usuario su on s.id_seccion = su.id_seccion  
+	where cast(su.id_usuario as varchar(800)) = p_idu;
+end;
+$function$
+;
+
+select * from usuario u 
+
+
+select * from extra_pregunta ep 
+
+--controlar si es "../../uploads/preguntas/undefined" entonces no crear la pregunta skere 
+CREATE OR REPLACE FUNCTION public.fu_tr_insert_extras_pregunta()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+	if trim(new.extra)='' then
+            raise exception 'El campo extra no puede estar vacio';
+    end if;
+   if new.extra='../../uploads/preguntas/undefined' then
+            raise exception 'Tiene que insertar una imagen valida';
+    end if;
+   if new.tiempo_enunciado<5 then 
+   			raise exception 'El tiempo no puede ser menor a 5 segundos';
+   end if;
+return new;
+end
+$function$
+;
+
+create trigger TR_update_extra_pregunta
+before update 
+on extra_pregunta
+for each row 
+execute procedure fu_tr_insert_extras_pregunta();
+
+
+select * from respuestas r order by id_respuesta  desc
+--lo mismo para las respuestas: ../../uploads/respuestas/undefined
+--../../uploads/respuestas/undefined
+
+CREATE OR REPLACE FUNCTION public.fu_tr_insert_or_updare_respuestas()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+	if trim(new.extra)='' then
+            raise exception 'El campo extra no puede estar vacio';
+    end if;
+   if new.extra='../../uploads/preguntas/undefined' then
+            raise exception 'Tiene que insertar una imagen valida';
+    end if;
+   if new.tiempo_enunciado<5 then 
+   			raise exception 'El tiempo no puede ser menor a 5 segundos';
+   end if;
+return new;
+end
+$function$
+;
+
+create trigger TR_update_extra_pregunta
+before update 
+on extra_pregunta
+for each row 
+execute procedure fu_tr_insert_extras_pregunta();
+
+
+select * from test_niveles tn 
+
+
+
+
+-- DROP FUNCTION public.fu_numeros_preguntas_validad_seccion(int4);
+
+CREATE OR REPLACE FUNCTION public.fu_numeros_preguntas_validad_seccion(p_id_seccion integer)
+ RETURNS TABLE(r_id_nivel integer, r_id_seccion integer, r_nivel character varying, r_total_preguntas integer, r_num_preguntas integer)
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	select  X.id_nivel_,p_id_seccion ,cast(CONCAT('Nivel ', CAST(X.nivel_ AS VARCHAR)) as varchar(100)),cast(Count(distinct p.id_pregunta)as int), cast(Count(distinct p.id_pregunta)as int)
+	from 
+	(select n.nivel as nivel_, n.id_nivel as id_nivel_
+	from preguntas pp 
+	inner join niveles n ON n.id_nivel = pp.id_nivel 
+	where n.id_seccion =p_id_seccion
+	group by n.nivel, n.id_nivel order by n.nivel asc) as X 
+	inner join preguntas p on X.id_nivel_= p.id_nivel
+	inner join respuestas r on p.id_pregunta =r.id_pregunta
+	group by X.nivel_, X.id_nivel_;
+	--antiguo
+	/*
+	SELECT
+    n.id_nivel,
+    n.id_seccion,
+    cast(CONCAT('Nivel ', CAST(n.nivel AS VARCHAR)) as varchar(100)) AS nivel,
+    cast(COUNT(p.id_nivel)as int) AS total_preguntas
+	FROM
+    niveles n
+	LEFT JOIN
+    preguntas p ON n.id_nivel = p.id_nivel
+    LEFT join
+    respuestas r on p.id_pregunta = r.id_pregunta 
+	WHERE
+    n.id_seccion = 58
+    and r.correcta 
+	GROUP BY
+    n.id_nivel, n.id_seccion, n.nivel, r.id_pregunta 
+	ORDER BY
+    n.id_nivel;
+   */
+end;
+$function$
+;
+
+--actualizar la funcion xq ahora el 3er parametro es un JSON con el nivel y el numero
+--de preguntas por nivel que obtendra esa seccion 
+-- DROP PROCEDURE public.sp_ingresar_seccion_test(int4, int4, int4);
+select * from niveles n ;
+select * from test_niveles tn ;
+
+CREATE OR REPLACE PROCEDURE public.sp_ingresar_seccion_test(IN p_id_test integer, IN p_id_seccion integer, IN p_numero_preguntas JSON)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	p_cantidad_niveles int;
+	p_p_numero_preguntas json;
+	p_p_p_numero_preguntas json;
+	r_id_nivel integer;
+	r_num_preguntas integer;
+	r_total_preguntas integer;
+	r_nivel character varying;
+	p_id_test_secciones integer;
+begin
+	--primero obtener la cantidad de niveles disponibles en dicha seccion, es decir, los que no tengan ningun error y esten en estado true
+	select into p_cantidad_niveles Count(*) as numNiveles from
+	(SELECT
+    n.id_nivel,
+    n.id_seccion,
+    cast(CONCAT('Nivel ', CAST(n.nivel AS VARCHAR)) as varchar(100)) AS nivel,
+    cast(COUNT(p.id_nivel)as int) AS total_preguntas
+	FROM
+    niveles n
+	LEFT JOIN
+    preguntas p ON n.id_nivel = p.id_nivel
+    LEFT join
+    respuestas r on p.id_pregunta = r.id_pregunta 
+	WHERE
+    n.id_seccion = p_id_seccion
+    and r.correcta 
+	GROUP BY
+    n.id_nivel, n.id_seccion, n.nivel
+	ORDER BY
+    n.id_nivel) as X;
+   --Primero ir recorriendo el JSON e ir insertando las preguntas por nivel en la tabla niveles seccion 
+   -- select * from test_niveles tn
+   	FOR p_p_numero_preguntas IN SELECT * FROM json_array_elements(p_numero_preguntas)
+    loop
+	    --varibales 
+       r_id_nivel := (p_p_numero_preguntas ->> 'r_id_nivel')::integer;
+	   r_num_preguntas := (p_p_numero_preguntas ->> 'r_num_preguntas')::integer;
+	   r_nivel := (p_p_numero_preguntas ->> 'r_nivel')::character varying;
+	  --r_nivel
+	  --si el seleccionado es true entonces insertar 
+	  --hacer una consulta para saber cuantas preguntas validas tiene ese nivel y si el numero ingresado
+	  --es mayor al que permite entonces no dejar ingresar 
+	  --r_total_preguntas
+	  select into r_total_preguntas cast(COUNT(*)as integer) from preguntas p where p.id_nivel =r_id_nivel and not p.error ;
+	 	if r_num_preguntas>r_total_preguntas then 
+	         RAISE EXCEPTION USING
+        MESSAGE = format('El numero de preguntas ingresado para el %s supera las %s preguntas validas registradas en dicho nivel', r_nivel, r_total_preguntas);
+	 	--raise exception 'El numero de preguntas ingresado para el nivel supera las preguntas validas registradas en dicho nivel';
+	 	end if;
+	 if r_num_preguntas<=0 then 
+	         RAISE EXCEPTION USING
+        MESSAGE = format('El numero de preguntas ingresado para el %s no puede menor o igual a 0', r_nivel);
+	 	--raise exception 'El numero de preguntas ingresado para el nivel supera las preguntas validas registradas en dicho nivel';
+	 	end if;
+    end loop;
+	--insertar en test_secciones
+	insert into test_secciones(id_test, id_seccion, cantidad_niveles,orden, numero_preguntas)
+		values(p_id_test,p_id_seccion,p_cantidad_niveles,1,1);
+ 	--obtener el id_test_secciones creado 
+	--select * from test_secciones order by fecha_add desc
+	select into p_id_test_secciones ts.id_test_secciones from test_secciones ts where ts.id_test=p_id_test and ts.id_seccion=p_id_seccion;
+      --hacer el segundo loop para ingresar los datos porque el primero solo era para verificarlo 
+   --select * from test_niveles tn ;
+FOR p_p_p_numero_preguntas IN SELECT * FROM json_array_elements(p_numero_preguntas)
+    loop
+	    --varibales 
+       r_id_nivel := (p_p_p_numero_preguntas ->> 'r_id_nivel')::integer;
+	   r_num_preguntas := (p_p_p_numero_preguntas ->> 'r_num_preguntas')::integer;
+	   --como no hubo errores entonces insertar los niveles con los numeros de preguntas 
+	  insert into test_niveles(id_nivel, numero_preguntas_nivel, id_test_secciones)
+	  values 
+	  (r_id_nivel,r_num_preguntas,p_id_test_secciones);
+	  	
+    end loop;
+   
+   
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;	
+$procedure$
+;
+
+
+CREATE OR REPLACE PROCEDURE public.SP_REGISTRAR_RESPUESTA_MULTIPLE_JSON(
+														p_id_progreso_pregunta int,
+														IN p_respuesta json, 
+														p_tiempo_respuesta int)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	--reemplazar el json para recorrerlo
+	p_p_respuesta JSON;
+	--variables del JSON
+	r_opcion character varying;
+	seleccionado bool;
+begin
+	
+	
+	FOR p_p_respuesta IN SELECT * FROM json_array_elements(p_respuesta)
+    loop
+	    --varibales 
+       r_opcion := (p_p_respuesta ->> 'r_opcion')::varchar;
+	   seleccionado := (p_p_respuesta ->> 'seleccionado')::boolean;
+	  --si el seleccionado es true entonces insertar 
+	  if seleccionado then 
+	  		insert into progreso_respuestas(id_progreso_pregunta,
+	  										respuesta,
+	  										tiempo_respuesta)
+	  										values (
+	  										p_id_progreso_pregunta,
+	  										r_opcion,
+	  										p_tiempo_respuesta
+	  										);
+	  end if;
+    end loop;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+--con esto obtengo el id del test secciones para obtener la lista de los niveles 
+--y para obtener el numero de las preguntas por nivel 
+select ts.id_test_secciones  from test_secciones ts 
+where ts.id_seccion = 54 and ts.id_test = 140;
+--obtener el numero de preguntas por nivel 
+select * from test_niveles tn  where tn.id_test_secciones =89;
+select * from fu_listar_niveles_num_preguntas(54,140);
+--{ p_id_seccion: '56', p_id_test: '145' }
+--funcion para listar el numero de preguntas por nivel para poderlos editar skere modo diablo 
+
+
+--DROP  FUNCTION public.fu_listar_niveles_num_preguntas(p_id_seccion integer, p_id_test integer)
+CREATE OR REPLACE FUNCTION public.fu_listar_niveles_num_preguntas(p_id_seccion integer, p_id_test integer)
+ RETURNS TABLE(r_id_test_niveles integer, r_nivel integer, r_total_preguntas integer, r_num_preguntas integer, r_id_nivel integer)
+ LANGUAGE plpgsql
+AS $function$
+declare
+	p_id_test_seccion integer;
+begin
+	select into p_id_test_seccion ts.id_test_secciones  from test_secciones ts 
+	where ts.id_seccion = p_id_seccion and ts.id_test = p_id_test;
+
+--ahora listar el numero de preguntas por nivel para mandarlos a editar
+--  select into r_total_preguntas cast(COUNT(*)as integer) from preguntas p where p.id_nivel =r_id_nivel and not p.error ;
+	return query
+	select 
+		tn.id_test_niveles,
+		n.nivel,
+		(select cast(COUNT(*)as integer) from preguntas p where p.id_nivel =tn.id_nivel and not p.error),
+		tn.numero_preguntas_nivel,
+		tn.id_nivel
+	from test_niveles tn  
+	inner join niveles n on tn.id_nivel = n.id_nivel
+	where tn.id_test_secciones =p_id_test_seccion--p_id_test_seccion
+	order by n.nivel ;
+
+end;
+$function$
+;
+
+--funcion que haga lo mismo que el de insertar pero que ahora lo edite 
+CREATE OR REPLACE PROCEDURE public.sp_actualizar_niveles_preguntas_seccion_test(IN p_id_test integer, IN p_id_seccion integer, IN p_numero_preguntas JSON)
+ LANGUAGE plpgsql
+AS $procedure$
+declare
+	p_cantidad_niveles int;
+	p_p_numero_preguntas json;
+	p_p_p_numero_preguntas json;
+	r_id_nivel integer;
+	r_num_preguntas integer;
+	r_total_preguntas integer;
+	r_nivel character varying;
+	p_id_test_secciones integer;
+r_r_id_nivel integer;
+begin
+   --Primero ir recorriendo el JSON e ir insertando las preguntas por nivel en la tabla niveles seccion 
+   -- select * from test_niveles tn
+   	FOR p_p_numero_preguntas IN SELECT * FROM json_array_elements(p_numero_preguntas)
+    loop
+	    --varibales 
+       r_id_nivel := (p_p_numero_preguntas ->> 'r_id_test_niveles')::integer;
+	   r_num_preguntas := (p_p_numero_preguntas ->> 'r_num_preguntas')::integer;
+	   r_nivel := (p_p_numero_preguntas ->> 'r_nivel')::character varying;
+	   r_r_id_nivel := (p_p_numero_preguntas ->> 'r_id_nivel')::integer;
+
+	  --
+	  
+	  --r_nivel
+	  --si el seleccionado es true entonces insertar 
+	  --hacer una consulta para saber cuantas preguntas validas tiene ese nivel y si el numero ingresado
+	  --es mayor al que permite entonces no dejar ingresar 
+	  --r_total_preguntas
+	  select into r_total_preguntas cast(COUNT(*)as integer) from preguntas p where p.id_nivel =r_r_id_nivel and not p.error ;
+	--primero preguntar si el numero de preguntas no es menor o 
+	 if r_num_preguntas<=0 then 
+	         RAISE EXCEPTION USING
+        MESSAGE = format('El numero de preguntas ingresado para el nivel %s no puede menor o igual a 0', r_nivel);
+	 	--raise exception 'El numero de preguntas ingresado para el nivel supera las preguntas validas registradas en dicho nivel';
+	 	--si no es asi entonces poner otra condicion 
+       -- condicion para ver si el numero de preguntas no es mayor al que existe 
+       else 
+      			 if r_num_preguntas>r_total_preguntas then 
+	      		 	  RAISE EXCEPTION USING
+      				  MESSAGE = format('El numero de preguntas ingresado para el nivel %s supera las %s preguntas validas registradas en dicho nivel', r_nivel, r_total_preguntas);
+	 			--raise exception 'El numero de preguntas ingresado para el nivel supera las preguntas validas registradas en dicho nivel';
+	 			--si no es asi entonces hacer el update 
+      			 else 
+       			--hacer el update 
+       			--test_niveles(id_nivel, numero_preguntas_nivel, id_test_secciones)
+      			 --select * from test_niveles
+      			 update test_niveles set numero_preguntas_nivel= r_num_preguntas where id_test_niveles=r_id_nivel;
+       			end if;
+       end if;
+    end loop;
+
+
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;	
+$procedure$
+;
+
+select * from usuario u 
+
+select * from FU_usuario_data('2b47b450-1e47-4113-989b-a52f4198a116');
+--funcion que devuelve los datos de un usuario para poderlos editar 
+CREATE OR REPLACE FUNCTION public.fu_info_Usuario(usuarioID character varying)
+ RETURNS TABLE(r_nombres_apellidos character varying, r_tipo_identificacion character varying, r_identificacion character varying, r_correo_institucional character varying, r_numero_celular character varying)
+ LANGUAGE plpgsql
+AS $function$
+
+begin
+	return query
+	select u.nombres_apellidos, u.tipo_identificacion, u.identificacion, u.correo_institucional, u.numero_celular  from usuario u where cast(u.id_user as character varying)=usuarioID;
+
+end;
+$function$
+;
+select * from usuario u 
+--procedimiento almacenado para editar la informacion de un perfil segun el id 
+CREATE OR REPLACE PROCEDURE public.sp_actualizar_info_user
+(p_nombres_apellidos character varying , p_identificacion character varying, p_numero_celular character varying, p_id_user character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+
+begin
+	update usuario set nombres_apellidos =p_nombres_apellidos, identificacion=p_identificacion, numero_celular=p_numero_celular
+	where cast (id_user as character varying )= p_id_user;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;	
+$procedure$
+;
+select * from usuario u
+--funcion para cambiar la contrasema de un perfil 
+-- DROP PROCEDURE public.sp_editar_usuario_not_admin(varchar, varchar, varchar);
+
+CREATE OR REPLACE PROCEDURE public.sp_editar_contrasena(IN p_id_usuario character varying, IN p_nueva_contraseña character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+begin
+	if trim(p_nueva_contraseña)='' then
+			raise exception ':La nueva contrasena no puede ser vacia';
+	end if;
+    -- Actualiza la contraseña y el número de celular en la tabla
+    UPDATE usuario
+    SET contra = PGP_SYM_ENCRYPT(p_nueva_contraseña::text, 'SGDV_KEY')
+    WHERE cast(id_user as character varying) = p_id_usuario;
+	
+EXCEPTION
+    -- Si ocurre algún error, revierte la transacción
+    WHEN OTHERS THEN
+        ROLLBACK;
+       RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal sp_editar_contrasena: %', SQLERRM;	
+END;
+$procedure$
+;
+
+--sp para guardar la configuracion de la interfaz de un usuario
+select iu.sidenavcolor ,iu.sidenavtype   from interfaz_usuario iu 
+select * from usuario u 
+CREATE OR REPLACE PROCEDURE public.sp_actualizar_interfaz_usuario(IN p_id_usuario character varying, p_sidenavcolor  character varying,p_sidenavtype  character varying)
+ LANGUAGE plpgsql
+AS $procedure$
+begin
+    -- Actualiza la contraseña y el número de celular en la tabla
+    UPDATE interfaz_usuario set 
+    sidenavcolor=p_sidenavcolor,
+    sidenavtype=p_sidenavtype
+    WHERE cast(id_user as character varying) = p_id_usuario;
+	
+EXCEPTION
+    -- Si ocurre algún error, revierte la transacción
+    WHEN OTHERS THEN
+        ROLLBACK;
+       RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal sp_actualizar_interfaz_usuario: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+
+--Consulta que devuelva un JSON con toda la informacion en uno solo para la paguina de inico de la APP 
+SELECT
+    json_build_object(
+        'NombreUser', u.nombres_apellidos,
+        'SeccionesInvitado', (
+            SELECT json_agg(json_build_object(
+                'r_seccion_titulo', s2.r_titulo,
+                'r_descripcion', s2.r_titulo,
+                'r_fecha_add', s2.r_fecha_add
+            ))
+            from secciones_top_5_admin_and_not(cast(u.id_user as character varying), false) s2
+        ),
+         'SeccionesAdmin', (
+            SELECT json_agg(json_build_object(
+                'r_seccion_titulo', s2.r_titulo,
+                'r_descripcion', s2.r_descripcion,
+                'r_fecha_add', s2.r_fecha_add
+            ))
+            from secciones_top_5_admin_and_not(cast(u.id_user as character varying), true)as s2
+        ),
+        'SeccionesEstadistica', (
+          SELECT json_agg(json_build_object(
+                'r_secciones_erroneas', X.r_secciones_erroneas,
+                'r_secciones_no_erroneas',X.r_sinerrores
+           )) 
+           FROM
+        (
+        select COUNT(*) as r_secciones_erroneas,
+		(
+		select COUNT(*) from fu_secciones_usuario(cast(u.id_user as character varying)) fu2
+		where not fu2.r_erroneo
+		) as r_sinerrores
+		from fu_secciones_usuario(cast(u.id_user as character varying)) fu
+		where fu.r_erroneo ) as X     
+        ),
+        'Formularios_Erroneos', (
+            SELECT json_agg(json_build_object(
+                'r_id_formulario',  X.id,
+                'r_titulo_formulario', X. titulo
+            ))
+            from
+(
+select t.id_test as id ,t.titulo as titulo  from test t
+where t.id_user_crea=u.id_user and t.estado_detalle ='Erroneo' 
+order by t.id_test desc limit 5
+) as X 
+        ),
+        'Formularios_mas_participantes', (
+            SELECT json_agg(json_build_object(
+                'r_id_test',  X.IDTEST,
+                'r_tituloTest',X.TITULOTEST,
+                'r_numero_participantes',X.Contador
+            ))
+            from 
+			(
+			select Y.IDTEST, Y.TITULOTEST, Y.Contador from 
+			(
+			select 
+			t.id_test as IDTEST,
+			t.titulo as TITULOTEST,
+			(
+			select COUNT(*) from participantes_test pt 
+			where pt.id_test = t.id_test 
+			) as Contador
+			from test t 
+			where  t.id_user_crea =u.id_user
+			) as Y 
+			order by Y.Contador desc limit 5 
+			) as X 
+ )) AS resultado_json
+ FROM usuario u
+ where cast(u.id_user as character varying)='5bdf086e-5f0b-4731-ae85-c360cab016cd';
+
+
+select *from usuario u 
+--3b43792d-ec18-49a5-b8af-753c65cb9b21
+--top 5 de formularios con mas participantes de un usuario
+select * from 
+(
+select Y.IDTEST, Y.TITULOTEST, Y.Contador from 
+(
+select 
+t.id_test as IDTEST,
+t.titulo as TITULOTEST,
+(
+select COUNT(*) from participantes_test pt 
+where pt.id_test = t.id_test 
+) as Contador
+from test t 
+where cast (t.id_user_crea as character varying) ='3b43792d-ec18-49a5-b8af-753c65cb9b21'
+) as Y 
+order by Y.Contador desc limit 5 
+) as X 
+
+
+select * from participantes_test
+
+
+
+select * from test
+
+
+
+CREATE OR REPLACE FUNCTION public.secciones_top_5_admin_and_not(p_id_user character varying, isadmin bool)
+ RETURNS TABLE(r_titulo character varying, r_descripcion character varying, r_fecha_add character varying )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	if (isadmin) then 
+		return query
+		SELECT 
+                s2.titulo,
+                 s2.descripcion,
+                 cast(to_char(s2.fecha_creacion ,'DD-MON-YYYY HH24:MI')as varchar(500))
+           
+            from secciones_usuario s 
+			inner join secciones s2  on s.id_seccion =s2.id_seccion 
+			where  cast(s.id_usuario as character varying)= p_id_user
+			and  s.admin_seccion order by s2.fecha_creacion desc limit 5;
+	else 
+	return query
+		SELECT 
+                s2.titulo,
+                 s2.descripcion,
+                 cast(to_char(s2.fecha_creacion ,'DD-MON-YYYY HH24:MI')as varchar(500))
+           
+            from secciones_usuario s 
+			inner join secciones s2  on s.id_seccion =s2.id_seccion 
+			where  cast(s.id_usuario as character varying)= p_id_user
+			and not s.admin_seccion order by s2.fecha_creacion desc limit 5;
+	end if;
+	
+end;
+$function$
+;
+
+select * from usuario u 
+
+
+select * from estadistica_paguina_home('3b43792d-ec18-49a5-b8af-753c65cb9b21');
+--funcion que retorna un JSON Con toda la informacion de golpe skere modo diablo 
+CREATE OR REPLACE FUNCTION public.estadistica_paguina_home(p_id_user character varying)
+ RETURNS TABLE(RESULTADO JSON )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+	SELECT
+    json_build_object(
+        'NombreUser', u.nombres_apellidos,
+        'SeccionesInvitado', (
+            SELECT json_agg(json_build_object(
+                'r_seccion_titulo', s2.r_titulo,
+                'r_descripcion', s2.r_titulo,
+                'r_fecha_add', s2.r_fecha_add
+            ))
+            from secciones_top_5_admin_and_not(cast(u.id_user as character varying), false) s2
+        ),
+         'SeccionesAdmin', (
+            SELECT json_agg(json_build_object(
+                'r_seccion_titulo', s2.r_titulo,
+                'r_descripcion', s2.r_descripcion,
+                'r_fecha_add', s2.r_fecha_add
+            ))
+            from secciones_top_5_admin_and_not(cast(u.id_user as character varying), true)as s2
+        ),
+        'SeccionesEstadistica', (
+          SELECT json_agg(json_build_object(
+                'r_secciones_erroneas', X.r_secciones_erroneas,
+                'r_secciones_no_erroneas',X.r_sinerrores
+           )) 
+           FROM
+        (
+        select COUNT(*) as r_secciones_erroneas,
+		(
+		select COUNT(*) from fu_secciones_usuario(cast(u.id_user as character varying)) fu2
+		where not fu2.r_erroneo
+		) as r_sinerrores
+		from fu_secciones_usuario(cast(u.id_user as character varying)) fu
+		where fu.r_erroneo ) as X     
+        ),
+        'Formularios_Erroneos', (
+            SELECT json_agg(json_build_object(
+                'r_id_formulario',  X.id,
+                'r_titulo_formulario', X. titulo
+            ))
+            from
+(
+select t.id_test as id ,t.titulo as titulo  from test t
+where t.id_user_crea=u.id_user and t.estado_detalle ='Erroneo' 
+order by t.id_test desc limit 5
+) as X 
+        ),
+        'Formularios_mas_participantes', (
+            SELECT json_agg(json_build_object(
+                'r_id_test',  X.IDTEST,
+                'r_tituloTest',X.TITULOTEST,
+                'r_numero_participantes',X.Contador
+            ))
+            from 
+			(
+			select Y.IDTEST, Y.TITULOTEST, Y.Contador from 
+			(
+			select 
+			t.id_test as IDTEST,
+			t.titulo as TITULOTEST,
+			(
+			select COUNT(*) from participantes_test pt 
+			where pt.id_test = t.id_test 
+			) as Contador
+			from test t 
+			where  t.id_user_crea =u.id_user
+			) as Y 
+			order by Y.Contador desc limit 5 
+			) as X 
+ )) AS resultado_json
+ FROM usuario u
+ where cast(u.id_user as character varying)=p_id_user;
+
+end;
+$function$
+;
+
+
+--eliminar tambien los registros de la tabla niveles secciones porque alli tiene el numero de preguntas segun el id de la seccion a eliminar 
+-- DROP PROCEDURE public.sp_eliminar_seccion_test(int4, int4);
+
+CREATE OR REPLACE PROCEDURE public.sp_eliminar_seccion_test(IN p_id_test integer, IN p_id_seccion integer)
+ LANGUAGE plpgsql
+AS $procedure$
+begin
+	delete from test_niveles where id_test_secciones in 
+		(select id_test_secciones  from test_secciones where id_test = id_test and id_seccion =p_id_seccion);
+		delete  from test_secciones ts where ts.id_test =p_id_test and id_seccion=p_id_seccion;
+	EXCEPTION
+        -- Si ocurre un error en la transacción principal, revertir
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE EXCEPTION 'Ha ocurrido un error en la transacción principal: %', SQLERRM;	
+END;
+$procedure$
+;
+
+
+select * from test_niveles tn 
+
+
+------------------[REPORTES PARA LA APP DE FORMULARIOS]-------------
+--funcion que devuelva un JSON con los reportes permitidos de un formulario
+--para saber si tiene participantes
+select
+case when COUNT(*) >0 then true else false end as TieneParticipantes 
+from participantes_test pt 
+where pt.id_test in 
+(
+select id_test  from test t 
+where cast(t.tokens as character varying )='d8ede920-ab80-4bce-a223-f7b5f7c4e3f7'
+) and pt.estado;
+--para saber si tiene secciones
+select 
+case when COUNT(*) >0 then true else false end as TieneSecciones 
+from test_secciones ts 
+where ts.id_test  in (
+select id_test from test t 
+where cast(t.tokens as character varying )='d8ede920-ab80-4bce-a223-f7b5f7c4e3f7' 
+);
+--para saber si tiene progresos respuestas, es decir si ya se esta resolviendo o esta resuelto
+select 
+case when COUNT(*) >0 then true else false end as TieneProgresoRespuestas 
+from progreso_secciones ps 
+inner join progreso_preguntas pp on ps.id_progreso_seccion=pp.id_progreso_seccion
+inner join progreso_respuestas pr on pp.id_progreso_preguntas = pr.id_progreso_pregunta
+where 
+ps.id_participante_test in 
+(
+select
+id_participante_test 
+from participantes_test pt 
+where pt.id_test in 
+(
+select id_test  from test t 
+where cast(t.tokens as character varying )='d8ede920-ab80-4bce-a223-f7b5f7c4e3f7'
+)
+);
+
+---EN JSON
+
+
+select * from fu_posibilidades_reportes_formulario('d8ede920-ab80-4bce-a223-f7b5f7c4e3f7');
+
+   CREATE OR REPLACE FUNCTION public.fu_posibilidades_reportes_formulario(p_token_test character varying)
+ RETURNS TABLE(RESULTADO JSON )
+ LANGUAGE plpgsql
+AS $function$
+begin
+	return query
+SELECT
+    json_build_object(
+        'TieneParticipantes', (SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END
+                               FROM participantes_test pt
+                               WHERE pt.id_test IN (SELECT id_test FROM test t WHERE cast(t.tokens as character varying)=p_token_test)
+                                 AND pt.estado),
+        'TieneSecciones', (SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END
+                           FROM test_secciones ts
+                           WHERE ts.id_test IN (SELECT id_test FROM test t WHERE cast(t.tokens as character varying)=p_token_test)),
+        'TieneProgresoRespuestas', (SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END
+                                    FROM progreso_secciones ps
+                                    INNER JOIN progreso_preguntas pp ON ps.id_progreso_seccion = pp.id_progreso_seccion
+                                    INNER JOIN progreso_respuestas pr ON pp.id_progreso_preguntas = pr.id_progreso_pregunta
+                                    WHERE ps.id_participante_test IN (SELECT id_participante_test
+                                                                      FROM participantes_test pt
+                                                                      WHERE pt.id_test IN (SELECT id_test FROM test t WHERE cast(t.tokens as character varying)=p_token_test)))
+    ) AS resultado_json;
+
+end;
+$function$
+;
