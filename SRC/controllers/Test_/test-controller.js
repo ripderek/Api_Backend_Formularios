@@ -464,6 +464,13 @@ const registrar_respuesta_unica = async (req, res, next) => {
   try {
     const { p_id_progreso_pregunta, p_respuesta, p_tiempo_respuesta } =
       req.body;
+
+    // Verificar si p_respuesta está vacía
+    if (!p_respuesta.trim()) {
+      // Si la respuesta está vacía, enviar una respuesta 404 con un mensaje
+      return res.status(404).json({ message: "No se permite respuesta vacía" });
+    }
+
     const result = await pool.query(
       "call SP_REGISTRAR_RESPUESTA_UNICA($1,$2,$3)",
       [p_id_progreso_pregunta, p_respuesta, p_tiempo_respuesta]
