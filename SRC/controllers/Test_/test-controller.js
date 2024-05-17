@@ -661,6 +661,56 @@ const fu_posibilidades_reportes_formulario = async (req, res, next) => {
     return res.status(404).json({ message: error.message });
   }
 };
+//funcion para listar los saltos de una seccion de un test
+const fu_listar_saltos_seccion = async (req, res, next) => {
+  try {
+    const { id_test, id_seccion } = req.params;
+    // console.log("error aqui");
+    console.log(req.params);
+    const result = await pool.query(
+      "select * from fu_listar_saltos_seccion($1,$2)",
+      [id_test, id_seccion]
+    );
+    console.log(result.rows);
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ message: error.message });
+  }
+};
+const fu_ver_detalle_salto = async (req, res, next) => {
+  try {
+    const { p_id_test, p_id_nivel, p_id_seccion } = req.params;
+    // console.log("error aqui");
+    console.log(req.params);
+    const result = await pool.query(
+      "select * from fu_ver_detalle_salto($1,$2,$3)",
+      [p_id_test, p_id_nivel, p_id_seccion]
+    );
+    console.log(result.rows);
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ message: error.message });
+  }
+};
+//fu_listar_niveles_saltos_seleccion
+const fu_listar_niveles_saltos_seleccion = async (req, res, next) => {
+  try {
+    const { p_id_test } = req.params;
+    // console.log("error aqui");
+    console.log(req.params);
+    const result = await pool.query(
+      "select * from fu_listar_niveles_saltos_seleccion($1)",
+      [p_id_test]
+    );
+    console.log(result.rows);
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({ message: error.message });
+  }
+};
 module.exports = {
   crear_test,
   test_usuario,
@@ -699,4 +749,7 @@ module.exports = {
   fu_listar_niveles_num_preguntas,
   sp_actualizar_niveles_preguntas_seccion_test,
   fu_posibilidades_reportes_formulario,
+  fu_listar_saltos_seccion,
+  fu_ver_detalle_salto,
+  fu_listar_niveles_saltos_seleccion,
 };

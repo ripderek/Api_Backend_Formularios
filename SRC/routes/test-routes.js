@@ -38,6 +38,9 @@ const {
   fu_listar_niveles_num_preguntas,
   sp_actualizar_niveles_preguntas_seccion_test,
   fu_posibilidades_reportes_formulario,
+  fu_listar_saltos_seccion,
+  fu_ver_detalle_salto,
+  fu_listar_niveles_saltos_seleccion,
 } = require("../controllers/Test_/test-controller");
 
 //router.post('/Login', verificaUser);
@@ -128,4 +131,19 @@ router.get(
   "/fu_posibilidades_reportes_formulario/:p_token_test",
   fu_posibilidades_reportes_formulario
 );
+
+router.get(
+  "/fu_listar_saltos_seccion/:id_test/:id_seccion",
+  fu_listar_saltos_seccion
+);
+
+router.get(
+  "/fu_ver_detalle_salto/:p_id_test/:p_id_nivel/:p_id_seccion",
+  fu_ver_detalle_salto
+);
+router.get(
+  "/fu_listar_niveles_saltos_seleccion/:p_id_test",
+  fu_listar_niveles_saltos_seleccion
+);
+
 module.exports = router;

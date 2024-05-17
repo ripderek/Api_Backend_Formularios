@@ -9413,6 +9413,7 @@ where cast(t.tokens as character varying )='d8ede920-ab80-4bce-a223-f7b5f7c4e3f7
 ---EN JSON
 
 
+
 select * from fu_posibilidades_reportes_formulario('d8ede920-ab80-4bce-a223-f7b5f7c4e3f7');
 
    CREATE OR REPLACE FUNCTION public.fu_posibilidades_reportes_formulario(p_token_test character varying)
@@ -9442,3 +9443,334 @@ SELECT
 end;
 $function$
 ;
+
+
+
+SELECT * FROM progreso_respuestas pr;
+select * from progreso_preguntas pp;
+select * from progreso_secciones ps 
+
+
+
+select * from participantes_test pt 
+
+
+
+
+select * from preguntas p order by p.id_pregunta  desc
+
+
+
+select * from progreso_preguntas pp;
+select * from progreso_respuestas pr limit 20;
+
+
+
+
+
+
+select * from test_niveles tn 
+inner join test_secciones ts 
+on tn.id_test_secciones = ts.id_test_secciones 
+where ts.id_test =149;
+
+
+
+
+--funcion para listar los niveles de una seccion de un formulario si el numero de preguntas es difirente de 0 
+--para hacer los saltos 
+-- drop FUNCTION public.fu_listar_niveles_saltos_seleccion(id_test integer)
+CREATE OR REPLACE FUNCTION public.fu_listar_niveles_saltos_seleccion(p_id_test integer)
+ RETURNS TABLE(r_id_test_niveles integer, r_id_nivel integer, r_nivel integer, r_id_test_secciones integer)
+ LANGUAGE plpgsql
+AS $function$
+--declare
+	--User_Deshabili bool;
+	---User_Exit bool;
+begin
+	-----
+	-----
+	return query
+	select tn.id_test_niveles,tn.id_nivel,n.nivel,tn.id_test_secciones from test_niveles tn 
+	inner join test_secciones ts 
+	on tn.id_test_secciones = ts.id_test_secciones 
+	inner join niveles n on tn.id_nivel = n.id_nivel
+	where ts.id_test = p_id_test
+	and tn.numero_preguntas_nivel <> 0
+	order by n.nivel ;
+end;
+$function$
+;
+
+--tabla para registrar los saltos que se van a realizar 
+--no se puede repetir la misma convinacion
+--drop table Saltos_Formulario
+create table Saltos_Formulario(
+	id_test integer  not null,
+	id_nivel integer not null,
+	id_pregunta integer not null,
+	id_nivel_salto integer not null,
+	id_opcion_respuesta integer not null,
+	id_seccion_test integer not null,
+	    PRIMARY KEY (id_test, id_nivel, id_pregunta, id_nivel_salto, id_opcion_respuesta, id_seccion_test)	
+);
+alter table Saltos_Formulario 
+add constraint FK_ID_Test_Salto
+FOREIGN KEY (id_test) 
+references test(id_test);
+
+
+
+--Listar los saltos creados en una seccion
+insert into Saltos_Formulario(id_test,id_nivel,id_pregunta,id_nivel_salto,id_opcion_respuesta, id_seccion_test)
+values (149,82,234,86,742, 73)
+
+select * from Saltos_Formulario
+--La unica pregunta que puede permitir saltos son las preguntas de opcion unica 
+select * from preguntas p where p.id_nivel =82
+select * from respuestas r where r.id_pregunta = 234;
+
+
+
+
+/*funcion para listar los saltos de una seccion de un fomrlario*/
+CREATE OR REPLACE FUNCTION public.fu_listar_saltos_seccion(p_id_test integer, p_id_seccion_test integer)
+ RETURNS TABLE(r_id_nivel integer, r_nivel integer, r_nivel_salto integer)
+ LANGUAGE plpgsql
+AS $function$
+--declare
+	--User_Deshabili bool;
+	---User_Exit bool;
+begin
+	-----
+	-----
+	return query
+	select Saltos.id_nivel, N1.nivel, N2.nivel from Saltos_Formulario Saltos
+	inner join Niveles N1 on Saltos.id_nivel = N1.id_nivel --nivel de donde se da el salto
+	inner join Niveles N2 on Saltos.id_nivel_salto = N2.id_nivel --nivel a donde se da el salto
+	where Saltos.id_test =p_id_test and Saltos.id_seccion_test = p_id_seccion_test;
+end;
+$function$
+;
+
+
+
+
+
+
+
+
+
+
+/*Funciones para hacer los saltos de niveles*/
+--funcion para listar los saltos de una seccion de un formulario 
+select * from fu_listar_saltos_seccion(149,73);
+--funcion para listar los niveles disponibles para hacer el salto 
+select * from fu_listar_niveles_saltos_seleccion(149);
+
+
+select * from participantes_test pt where pt.id_test =149;
+
+select * from progreso_secciones ps where ps.id_participante_test =201
+select * from progreso_preguntas pp  where pp.id_progreso_seccion = 202
+
+select * from progreso_respuestas pr where pr.id_progreso_pregunta =1.232
+
+
+
+--crear un trigger para saber si hay un salto de nivel 
+--cuando se ingresa un progreso respuesta
+select * from Saltos_Formulario
+/*
+ id_test	id_nivel	id_pregunta	id_nivel_salto	id_opcion_respuesta	id_seccion_test
+ 149			82			234			86				742					73
+ * */
+--tiene que coincidir en todo lo anterior menos en el id_nivel salto para poder verificar que hay un salto de nivel 
+--todo recolectarlo desde el ingreso de un progreso respuesta 
+--de aqui se obtiene el campo "respuesta" que puede ser comparado con la respuesta para saber si selecciono la respuesta que da el salto
+select id_progreso_pregunta,respuesta from progreso_respuestas pr where pr.id_progreso_respuestas =
+--543		Muy de acuerdo--> opcion respuesta
+select id_progreso_seccion, id_pregunta from progreso_preguntas pp where id_progreso_preguntas=543
+--77	186 --> id_pregunta
+select id_nivel from preguntas p where p.id_pregunta = 186;
+--39  --> id_nivel
+select ps.id_participante_test , id_seccion  from progreso_secciones ps where ps.id_progreso_seccion =77
+-- 137	60-->id_seccion_test
+select pt.id_test from participantes_test pt  where pt.id_participante_test = 137
+--132
+
+
+select * from preguntas p where p.id_pregunta =234;
+
+select * from respuestas r where r.id_respuesta =742;
+
+---consulta para ver si existe el salto de nivel
+select case when COUNT(*)>= 1 then true else false end as VerificadorSalto  from Saltos_Formulario Sal
+inner join respuestas r on Sal.id_opcion_respuesta = r.id_respuesta 
+where Sal.id_test=149 and Sal.id_nivel=82 and Sal.id_pregunta=234 and r.opcion ='Muy de acuerdo'and Sal.id_seccion_test=73
+
+--fu_tr_reponder_progreso_respuestas
+--modificar el after para saber si hay o no salto de nivel 
+-- DROP FUNCTION public.fu_tr_reponder_progreso_respuestas();
+
+CREATE OR REPLACE FUNCTION public.fu_tr_reponder_progreso_respuestas()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+---Declarar variables
+declare
+	p_id_progreso_seccion int;
+	p_completo bool;
+	p_porcentaje int;
+	--variables para identificar el salto 
+	p_id_progreso_pregunta int;
+	p_respuesta character varying;
+--id_progreso_seccion, id_pregunta
+	--p_id_progreso_seccion int;
+	p_id_pregunta int;
+	p_id_nivel int;
+	p_id_participante_test int;
+	p_id_seccion int; 
+	p_id_test int;
+	p_existe_salto bool;
+	p_id_nivel_salto int;
+begin
+	--primero obtener el id seccion que es unico para cada participante_test 
+	--new.id_progreso_pregunta =5 -->ejemplo
+	select into p_id_progreso_seccion pp.id_progreso_seccion  from progreso_preguntas pp where pp.id_progreso_preguntas=new.id_progreso_pregunta;
+
+	--hacer la comparacion para obtener el booleano 
+    /*
+	select into p_completo case when COUNT(*)>=(select COUNT(*) from progreso_preguntas pp where pp.id_progreso_seccion =p_id_progreso_seccion) then true else false end 
+	as Completado
+	from progreso_respuestas pr inner join progreso_preguntas pp on pr.id_progreso_pregunta = pp.id_progreso_preguntas 
+	where pp.id_progreso_seccion =p_id_progreso_seccion;
+	*/
+	--obtener el porcentaje 
+	SELECT 
+  (COUNT(distinct pr.id_progreso_pregunta) * 100) / NULLIF((SELECT COUNT(*) FROM progreso_preguntas pp WHERE pp.id_progreso_seccion = p_id_progreso_seccion), 0) AS PorcentajeCompletado,
+  CASE WHEN (COUNT(distinct pr.id_progreso_pregunta) * 100) / NULLIF((SELECT COUNT(*) FROM progreso_preguntas pp WHERE pp.id_progreso_seccion = p_id_progreso_seccion), 0) = 100 THEN true ELSE false END AS Verificado  
+	INTO 
+  p_porcentaje,
+  p_completo
+	FROM
+  	progreso_respuestas pr
+	INNER JOIN
+  	progreso_preguntas pp ON pr.id_progreso_pregunta = pp.id_progreso_preguntas
+	WHERE
+  	pp.id_progreso_seccion = p_id_progreso_seccion;
+  
+  	--si el porcentaje es 100 entonces es completado 
+  
+	--actualizar el registro
+	update progreso_secciones set estado_completado=p_completo,porcentaje=p_porcentaje where id_progreso_seccion=p_id_progreso_seccion;
+	
+
+
+	/*NUEVO PARA DAR SALTOS DE NIVELES */
+	/*
+ id_test	id_nivel	id_pregunta	id_nivel_salto	id_opcion_respuesta	id_seccion_test
+ 149			82			234			86				742					73
+ * */
+	--tiene que coincidir en todo lo anterior menos en el id_nivel salto para poder verificar que hay un salto de nivel 
+	--todo recolectarlo desde el ingreso de un progreso respuesta 
+--select * from progreso_respuestas
+	--de aqui se obtiene el campo "respuesta" que puede ser comparado con la respuesta para saber si selecciono la respuesta que da el salto
+	select pr.id_progreso_pregunta, pr.respuesta  into   p_id_progreso_pregunta,	p_respuesta from progreso_respuestas pr where pr.id_progreso_respuestas = new.id_progreso_respuestas;
+	--543		Muy de acuerdo--> opcion respuesta
+	select pp.id_progreso_seccion, pp.id_pregunta  into  p_id_progreso_seccion,	p_id_pregunta  from progreso_preguntas pp where id_progreso_preguntas=new.id_progreso_pregunta;
+	--77	186 --> id_pregunta
+	select p.id_nivel into    p_id_nivel from preguntas p where p.id_pregunta = p_id_pregunta;
+	--39  --> id_nivel
+	select ps.id_participante_test , ps.id_seccion  into   p_id_participante_test, p_id_seccion from progreso_secciones ps where ps.id_progreso_seccion =p_id_progreso_seccion;
+	-- 137	60-->id_seccion_test
+	select pt.id_test  into   p_id_test from participantes_test pt  where pt.id_participante_test = p_id_participante_test;
+	--132
+	--
+	---consulta para ver si existe el salto de nivel
+	select case when COUNT(*)>= 1 then true else false end as VerificadorSalto  into  p_existe_salto from Saltos_Formulario Sal
+	inner join respuestas r on Sal.id_opcion_respuesta = r.id_respuesta 
+	where Sal.id_test=p_id_test and Sal.id_nivel=p_id_nivel and Sal.id_pregunta=p_id_pregunta and r.opcion =p_respuesta and Sal.id_seccion_test=p_id_seccion;
+	
+	--Si existe un salto entonces marcarlo para llenar las siguinetes preguntas con N/A hasta el siguiente nivel
+	if p_existe_salto then
+		--p_id_nivel_salto
+            --raise exception 'Exite Salto de Nivel en esta opcion';
+			select Sal.id_nivel_salto into  p_id_nivel_salto 
+			from Saltos_Formulario Sal
+			inner join respuestas r on Sal.id_opcion_respuesta = r.id_respuesta 
+			where Sal.id_test=p_id_test and Sal.id_nivel=p_id_nivel and Sal.id_pregunta=p_id_pregunta and r.opcion =p_respuesta and Sal.id_seccion_test=p_id_seccion;
+			--llenar las preguntas para hacer el efecto del salto de nivel 
+		--select * from progreso_respuestas
+			insert into progreso_respuestas (id_progreso_pregunta,respuesta,tiempo_respuesta)
+			select X.id_progreso_preguntas,cast('NA' as character varying),cast(1 as integer) from 
+			(
+			select pp.id_progreso_preguntas ,p.id_pregunta , n.id_nivel, 
+			(select case when COUNT(*)>=1 then true else false end  from progreso_respuestas pr where pr.id_progreso_pregunta=pp.id_progreso_preguntas) as Verificador
+			from progreso_preguntas pp 
+			inner join preguntas p on pp.id_pregunta = p.id_pregunta 
+			inner join niveles n  on p.id_nivel =n.id_nivel 
+			where pp.id_progreso_seccion =p_id_progreso_seccion
+			---id_nivel inciia    --id_nivel_salta
+			and (n.id_nivel >= p_id_nivel and n.id_nivel<p_id_nivel_salto)
+			order by n.id_nivel 
+			) as X 
+			where X.Verificador = false;
+   			end if;
+
+return new;
+end
+$function$
+;
+
+
+select * from preguntas p where p.id_nivel =86
+
+
+--obtener los id de los progresos_preguntas para dar el salto 
+	/*
+ id_test	id_nivel	id_pregunta	id_nivel_salto	id_opcion_respuesta	id_seccion_test
+ 149			82			234			86				742					73
+ * */
+
+select * from progreso_secciones ps where ps.id_participante_test =211
+
+select * from participantes_test pt 
+
+--con el id de la seccion obtenida puedo tener los progresos preguntas 
+select * from 
+(
+select pp.id_progreso_preguntas ,p.id_pregunta , n.id_nivel, 
+(select case when COUNT(*)>=1 then true else false end  from progreso_respuestas pr where pr.id_progreso_pregunta=pp.id_progreso_preguntas) as Verificador
+from progreso_preguntas pp 
+inner join preguntas p on pp.id_pregunta = p.id_pregunta 
+inner join niveles n  on p.id_nivel =n.id_nivel 
+where pp.id_progreso_seccion =212
+	---id_nivel inciia    --id_nivel_salta
+--and (n.id_nivel >= 82 and n.id_nivel<86)
+order by n.id_nivel 
+) as X 
+where X.Verificador = false
+
+
+select * from participantes_test pt 
+
+
+select * from preguntas p where p.id_pregunta =243
+
+
+
+
+-- funcion para poder ver la pregunta que hace el salto al otro nivel 
+select * from saltos_formulario sf;
+---primero tengo que obtener el id de la pregunta
+
+select sf.id_pregunta  from saltos_formulario sf where sf.id_test =1 and sf.id_nivel =1 and sf.id_seccion_test =1;
+
+select p.enunciado, r.opcion, case when r.id_respuesta =742 then true else false end as Saltado
+from preguntas p 
+inner join respuestas r on p.id_pregunta =r.id_pregunta 
+where p.id_pregunta =234 
+
+
+
